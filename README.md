@@ -38,22 +38,3 @@ kps_back = opencv_ORB_kpts_from_laf(lafs)
 out_img2 = cv2.drawKeypoints(img, kps_back, None, flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
 plt.imshow(out_img2)
 ```
-
-
-![png](docs/images/output_4_0.png)
-
-
-
-![png](docs/images/output_4_1.png)
-
-
-
-
-
-    <matplotlib.image.AxesImage at 0x7fc68756f310>
-
-
-
-
-![png](docs/images/output_4_3.png)
-
