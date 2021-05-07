@@ -8,18 +8,22 @@ __all__ = ['laf_from_opencv_kpts', 'visualize_LAF', 'opencv_kpts_from_laf', 'cv2
 import cv2
 import torch
 import kornia as K
-from typing import List
+from typing import List, Union, Tuple, Optional
 import matplotlib.pyplot as plt
 
 def laf_from_opencv_kpts(kpts: List[cv2.KeyPoint],
                          mrSize: float=6.0,
-                         device: torch.device=torch.device('cpu')) -> torch.Tensor:
+                         device: torch.device=torch.device('cpu'),
+                         with_resp: bool = False) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
     N = len(kpts)
     xy = torch.tensor([(x.pt[0], x.pt[1]) for x in kpts ], device=device, dtype=torch.float).view(1, N, 2)
     scales = torch.tensor([(mrSize * x.size) for x in kpts ], device=device, dtype=torch.float).view(1, N, 1, 1)
     angles = torch.tensor([(-x.angle) for x in kpts ], device=device, dtype=torch.float).view(1, N, 1)
     laf = K.feature.laf_from_center_scale_ori(xy, scales, angles).reshape(1, -1, 2, 3)
-    return laf.reshape(1, -1, 2, 3)
+    if not with_resp:
+        return laf.reshape(1, -1, 2, 3)
+    resp = torch.tensor([x.response for x in kpts], device=device, dtype=torch.float).view(1, N, 1)
+    return laf, resp
 
 def visualize_LAF(img, LAF, img_idx = 0):
     x, y = K.feature.laf.get_laf_pts_to_draw(LAF, img_idx)
@@ -30,12 +34,18 @@ def visualize_LAF(img, LAF, img_idx = 0):
     return
 
 def opencv_kpts_from_laf(lafs: torch.Tensor,
-                         mrSize: float = 1.0) -> List[cv2.KeyPoint]:
+                         mrSize: float = 1.0,
+                         resps: Optional[torch.Tensor] = None) -> List[cv2.KeyPoint]:
     XY = K.feature.get_laf_center(lafs)
     S = K.feature.get_laf_scale(lafs)
     Ang = K.feature.get_laf_orientation(lafs)
-    cv_kpts = [cv2.KeyPoint(xy[0].item(), xy[1].item(), s.item()/ mrSize, -a.item())
-               for xy, s, a in zip(XY.view(-1,2), S.view(-1, 1), Ang.view(-1, 1))]
+    if resps is not None:
+        assert resps.shape[:2] == lafs.shape[:2]
+        cv_kpts = [cv2.KeyPoint(xy[0].item(), xy[1].item(), s.item()/mrSize, -a.item(), r.item())
+                   for xy, s, a, r in zip(XY.view(-1,2), S.view(-1, 1), Ang.view(-1, 1), resps.view(-1, 1))]
+    else:
+        cv_kpts = [cv2.KeyPoint(xy[0].item(), xy[1].item(), s.item()/ mrSize, -a.item())
+                   for xy, s, a in zip(XY.view(-1,2), S.view(-1, 1), Ang.view(-1, 1))]
     return cv_kpts
 
 # Cell
@@ -56,16 +66,18 @@ def kornia_matches_from_cv2(cv2_matches, device=torch.device('cpu')):
 
 # Cell
 def laf_from_opencv_ORB_kpts(kpts: List[cv2.KeyPoint],
-                         device: torch.device=torch.device('cpu')) -> torch.Tensor:
-    return laf_from_opencv_kpts(kpts, 0.5, device)
+                             device: torch.device=torch.device('cpu'),
+                             with_resp: bool = False) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
+    return laf_from_opencv_kpts(kpts, 0.5, device, with_resp)
 
 def laf_from_opencv_SIFT_kpts(kpts: List[cv2.KeyPoint],
-                         device: torch.device=torch.device('cpu')) -> torch.Tensor:
-    return laf_from_opencv_kpts(kpts, 6.0, device)
+                              device: torch.device=torch.device('cpu'),
+                              with_resp: bool = False) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
+    return laf_from_opencv_kpts(kpts, 6.0, device, with_resp)
 
 
-def opencv_SIFT_kpts_from_laf(lafs):
-    return opencv_kpts_from_laf(lafs, 6.0);
+def opencv_SIFT_kpts_from_laf(lafs, resps: Optional[torch.Tensor] = None):
+    return opencv_kpts_from_laf(lafs, 6.0, resps);
 
-def opencv_ORB_kpts_from_laf(lafs):
-    return opencv_kpts_from_laf(lafs, 0.5);
+def opencv_ORB_kpts_from_laf(lafs, resps: Optional[torch.Tensor] = None):
+    return opencv_kpts_from_laf(lafs, 0.5, resps);
