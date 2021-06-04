@@ -25,11 +25,11 @@ def laf_from_opencv_kpts(kpts: List[cv2.KeyPoint],
     resp = torch.tensor([x.response for x in kpts], device=device, dtype=torch.float).view(1, N, 1)
     return laf, resp
 
-def visualize_LAF(img, LAF, img_idx = 0):
+def visualize_LAF(img, LAF, img_idx = 0, color='r', **kwargs):
     x, y = K.feature.laf.get_laf_pts_to_draw(LAF, img_idx)
-    plt.figure()
+    plt.figure(**kwargs)
     plt.imshow(K.utils.tensor_to_image(img[img_idx]))
-    plt.plot(x, y, 'r')
+    plt.plot(x, y, color)
     plt.show()
     return
 
