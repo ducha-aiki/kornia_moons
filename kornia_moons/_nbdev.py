@@ -5,12 +5,12 @@ __all__ = ["index", "modules", "custom_doc_links", "git_url"]
 index = {"laf_from_opencv_kpts": "feature.ipynb",
          "visualize_LAF": "feature.ipynb",
          "opencv_kpts_from_laf": "feature.ipynb",
-         "cv2_matches_from_kornia": "feature.ipynb",
-         "kornia_matches_from_cv2": "feature.ipynb",
          "laf_from_opencv_ORB_kpts": "feature.ipynb",
          "laf_from_opencv_SIFT_kpts": "feature.ipynb",
          "opencv_SIFT_kpts_from_laf": "feature.ipynb",
-         "opencv_ORB_kpts_from_laf": "feature.ipynb"}
+         "opencv_ORB_kpts_from_laf": "feature.ipynb",
+         "cv2_matches_from_kornia": "feature.ipynb",
+         "kornia_matches_from_cv2": "feature.ipynb"}
 
 modules = ["feature.py"]
 

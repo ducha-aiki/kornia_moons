@@ -39,8 +39,8 @@ out_img2 = cv2.drawKeypoints(img, kps_back, None, flags=cv2.DRAW_MATCHES_FLAGS_D
 plt.imshow(out_img2)
 ```
 
-
-![png](docs/images/output_4_0.png)
+    /opt/homebrew/Caskroom/miniforge/base/envs/python38/lib/python3.8/site-packages/kornia/augmentation/augmentation.py:1830: DeprecationWarning: GaussianBlur is no longer maintained and will be removed from the future versions. Please use RandomGaussianBlur instead.
+      warnings.warn(
 
 
 
@@ -48,12 +48,16 @@ plt.imshow(out_img2)
 
 
 
-
-
-    <matplotlib.image.AxesImage at 0x7fef182f5fd0>
-
+![png](docs/images/output_4_2.png)
 
 
 
-![png](docs/images/output_4_3.png)
+
+
+    <matplotlib.image.AxesImage at 0x179a196d0>
+
+
+
+
+![png](docs/images/output_4_4.png)
 

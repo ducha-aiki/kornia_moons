@@ -1,7 +1,26 @@
 from pkg_resources import parse_version
+from pkg_resources import DistributionNotFound, get_distribution
 from configparser import ConfigParser
+import re
 import setuptools
 assert parse_version(setuptools.__version__)>=parse_version('36.2')
+
+
+# Taken from https://github.com/albumentations-team/albumentations/blob/1.0.0/setup.py
+def choose_requirement(mains, secondary):
+    """If some version version of main requirement installed, return main,
+    else return secondary.
+    """
+    chosen = secondary
+    for main in mains:
+        try:
+            name = re.split(r"[!<>=]", main)[0]
+            get_distribution(name)
+            chosen = main
+            break
+        except DistributionNotFound as e:
+            pass
+    return str(chosen)
 
 # note: all settings are in settings.ini; edit there, not here
 config = ConfigParser(delimiters=['='])
@@ -24,6 +43,13 @@ requirements = cfg.get('requirements','').split()
 lic = licenses[cfg['license']]
 min_python = cfg['min_python']
 
+# Taken from https://github.com/albumentations-team/albumentations/blob/1.0.0/setup.py
+# If none of packages in first installed, install second package
+CHOOSE_INSTALL_REQUIRES = [
+        ("opencv-python", "opencv-contrib-python", "opencv-contrib-python-headless"),
+        "opencv-python-headless"]
+
+
 setuptools.setup(
     name = cfg['lib_name'],
     license = lic[0],
@@ -36,7 +62,7 @@ setuptools.setup(
     url = cfg['git_url'],
     packages = setuptools.find_packages(),
     include_package_data = True,
-    install_requires = requirements,
+    install_requires = requirements + [choose_requirement(*CHOOSE_INSTALL_REQUIRES)],
     dependency_links = cfg.get('dep_links','').split(),
     python_requires  = '>=' + cfg['min_python'],
     long_description = open('README.md').read(),
