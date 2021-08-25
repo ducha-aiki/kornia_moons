@@ -297,6 +297,7 @@ def draw_LAF_matches_from_result_dict(result_dict,
 # Cell
 import kornia as K
 import kornia.feature as KF
+import kornia.geometry as KG
 import torch
 def draw_LAF_inliers_perspective_repjojected(lafs1, lafs2, tent_idxs,
                         img1, img2, inlier_mask = None,
