@@ -284,7 +284,7 @@ def draw_LAF_matches_from_result_dict(result_dict,
         H = result_dict['H']
     else:
         H = None
-    if 'F' in result_dict:
+    if 'F' in rbesult_dict:
         Fm = result_dict['F']
     else:
         Fm = None
@@ -316,9 +316,9 @@ def draw_LAF_inliers_perspective_repjojected(lafs1, lafs2, tent_idxs,
 
     img2_tr = deepcopy(img2)
 
-    lafs1_in2 = KG.perspective_transform_lafs(torch.from_numpy(H).float()[None],
+    lafs1_in2 = KF.perspective_transform_lafs(torch.from_numpy(H).float()[None],
                                               lafs1)
-    lafs2_in1 = KG.perspective_transform_lafs(torch.inverse(torch.from_numpy(H).float()[None]),
+    lafs2_in1 = KF.perspective_transform_lafs(torch.inverse(torch.from_numpy(H).float()[None]),
                                               lafs2)
     xy1 = KF.get_laf_center(lafs1).reshape(-1, 2)
     xy2 = KF.get_laf_center(lafs2).reshape(-1, 2)
@@ -380,19 +380,19 @@ def draw_LAF_inliers_perspective_repjojected(lafs1, lafs2, tent_idxs,
         ic = None
     if (ic is not None) and (inlier_mask is not None):
         inlier_mask = inlier_mask > 0
-        ax.plot(tent_corrs_in1[..., inlier_mask, 0], tent_corrs_in1[...,inlier_mask, 1], color=ic)
+        ax.plot(tent_corrs_in1[..., inlier_mask, 0], tent_corrs_in1[...,inlier_mask, 1], color=ic)#, markersize=15, marker='x')
         ax.plot(tent_corrs_in2[..., inlier_mask, 0],
-                tent_corrs_in2[...,inlier_mask, 1], color=ic)
-        ax.plot(x1[:, tent_idxs[inlier_mask,0]], y1[:, tent_idxs[inlier_mask,0]], color=ic)
-        ax.plot(x2[:, tent_idxs[inlier_mask,1]], y2[:, tent_idxs[inlier_mask,1]], color=ic)
+                tent_corrs_in2[...,inlier_mask, 1], color=ic)#, markersize=15, marker='x')
+        ax.plot(x1[:, tent_idxs[inlier_mask,0]], y1[:, tent_idxs[inlier_mask,0]], color=ic)#, markersize=15)
+        ax.plot(x2[:, tent_idxs[inlier_mask,1]], y2[:, tent_idxs[inlier_mask,1]], color=ic)# markersize=15)
     try:
         rc = draw_dict['reprojected_color']
     except:
         rc = None
     if rc is not None:
         inlier_mask = inlier_mask > 0
-        ax.plot(x1in2[:, tent_idxs[inlier_mask,0]], y1in2[:, tent_idxs[inlier_mask,0]], color=rc)
-        ax.plot(x2in1[:, tent_idxs[inlier_mask,1]], y2in1[:, tent_idxs[inlier_mask,1]], color=rc)
+        ax.plot(x1in2[:, tent_idxs[inlier_mask,0]], y1in2[:, tent_idxs[inlier_mask,0]], color=rc)#, markersize=15)
+        ax.plot(x2in1[:, tent_idxs[inlier_mask,1]], y2in1[:, tent_idxs[inlier_mask,1]], color=rc)#, markersize=15)
 
     # Finally clip the image
     ax.imshow(new_img)
