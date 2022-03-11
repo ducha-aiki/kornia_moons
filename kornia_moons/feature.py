@@ -3,7 +3,8 @@
 __all__ = ['laf_from_opencv_kpts', 'visualize_LAF', 'opencv_kpts_from_laf', 'laf_from_opencv_ORB_kpts',
            'laf_from_opencv_SIFT_kpts', 'opencv_SIFT_kpts_from_laf', 'opencv_ORB_kpts_from_laf',
            'cv2_matches_from_kornia', 'kornia_matches_from_cv2', 'to_numpy_image', 'epilines_to_start_end_points',
-           'draw_LAF_matches', 'draw_LAF_matches_from_result_dict', 'draw_LAF_inliers_perspective_repjojected']
+           'draw_LAF_matches', 'draw_LAF_matches_from_result_dict', 'draw_LAF_inliers_perspective_repjojected',
+           'OpenCVDetectorKornia', 'OpenCVFeatureKornia']
 
 # Cell
 import cv2
@@ -405,3 +406,42 @@ def draw_LAF_inliers_perspective_repjojected(lafs1, lafs2, tent_idxs,
         ax.set_ylim([h+h2, 0])
         ax.margins(0,0)
     return
+
+# Cell
+import torch.nn as nn
+class OpenCVDetectorKornia(nn.Module):
+    def __init__(self, opencv_detector, mrSize: float = 6.0):
+        super().__init__()
+        self.features = opencv_detector
+        self.mrSize = mrSize
+
+    def forward(self, x:torch.Tensor, mask=None):
+        max_val = x.max()
+        if max_val < 2.0:
+            img_np = (255 * K.tensor_to_image(x)).astype(np.uint8)
+        else:
+            img_np =  K.tensor_to_image(x).astype(np.uint8)
+        if mask is not None:
+            mask = K.tensor_to_image(x).astype(np.uint8)
+        kpts = self.features.detect(img_np, mask)
+        lafs, resp = laf_from_opencv_kpts(kpts, mrSize=self.mrSize, with_resp=True, device=x.device)
+        return lafs, resp
+
+
+class OpenCVFeatureKornia(nn.Module):
+    def __init__(self, opencv_detector, mrSize: float = 6.0):
+        super().__init__()
+        self.features = opencv_detector
+        self.mrSize = mrSize
+
+    def forward(self, x:torch.Tensor, mask=None):
+        max_val = x.max()
+        if max_val < 2.0:
+            img_np = (255 * K.tensor_to_image(x)).astype(np.uint8)
+        else:
+            img_np =  K.tensor_to_image(x).astype(np.uint8)
+        if mask is not None:
+            mask = K.tensor_to_image(x).astype(np.uint8)
+        kpts, descs = self.features.detectAndCompute(img_np, mask)
+        lafs, resp = laf_from_opencv_kpts(kpts, mrSize=self.mrSize, with_resp=True, device=x.device)
+        return lafs, resp, torch.from_numpy(descs).to(device=x.device)[None]
