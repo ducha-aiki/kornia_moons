@@ -17,7 +17,8 @@ index = {"laf_from_opencv_kpts": "feature.ipynb",
          "draw_LAF_matches_from_result_dict": "feature.ipynb",
          "draw_LAF_inliers_perspective_repjojected": "feature.ipynb",
          "OpenCVDetectorKornia": "feature.ipynb",
-         "OpenCVFeatureKornia": "feature.ipynb"}
+         "OpenCVFeatureKornia": "feature.ipynb",
+         "OpenCVDetectorWithAffNetKornia": "feature.ipynb"}
 
 modules = ["feature.py"]
 

@@ -448,11 +448,13 @@ class OpenCVFeatureKornia(nn.Module):
 
 
 class OpenCVDetectorWithAffNetKornia(nn.Module):
-    def __init__(self, opencv_detector, mrSize: float = 6.0):
+    def __init__(self, opencv_detector, make_upright = False, mrSize: float = 6.0, max_kpts = -1):
         super().__init__()
         self.features = opencv_detector
         self.mrSize = mrSize
         self.affnet = KF.LAFAffNetShapeEstimator(True).eval()
+        self.make_upright = make_upright
+        self.max_kpts = max_kpts
 
     def forward(self, x:torch.Tensor, mask=None):
         self.affnet = self.affnet.to(x.device)
@@ -464,6 +466,20 @@ class OpenCVDetectorWithAffNetKornia(nn.Module):
         if mask is not None:
             mask = K.tensor_to_image(x).astype(np.uint8)
         kpts = self.features.detect(img_np, mask)
+            # Compute descriptors
+        if self.make_upright:
+            unique_kp = []
+            for i, kk in enumerate(kpts):
+                if i > 0:
+                    if kk.response == kpts[i - 1].response:
+                        continue
+                kk.angle = 0
+                unique_kp.append(kk)
+            top_resps = np.array([kk.response for kk in unique_kp])
+            idxs = np.argsort(top_resps)[::-1]
+            if self.max_kpts < 0:
+                self.max_kpts = 100000000
+            kpts = [unique_kp[i]  for i in idxs[:min(len(unique_kp), self.max_kpts)]]
         lafs, resp = laf_from_opencv_kpts(kpts, mrSize=self.mrSize, with_resp=True, device=x.device)
         ori = KF.get_laf_orientation(lafs)
         lafs = self.affnet(lafs, x.mean(dim=1, keepdim=True))
