@@ -4,7 +4,7 @@ __all__ = ['laf_from_opencv_kpts', 'visualize_LAF', 'opencv_kpts_from_laf', 'laf
            'laf_from_opencv_SIFT_kpts', 'opencv_SIFT_kpts_from_laf', 'opencv_ORB_kpts_from_laf',
            'cv2_matches_from_kornia', 'kornia_matches_from_cv2', 'to_numpy_image', 'epilines_to_start_end_points',
            'draw_LAF_matches', 'draw_LAF_matches_from_result_dict', 'draw_LAF_inliers_perspective_repjojected',
-           'OpenCVDetectorKornia', 'OpenCVFeatureKornia', 'OpenCVDetectorWithAffNetKornia']
+           'make_keypoints_upright', 'OpenCVDetectorKornia', 'OpenCVFeatureKornia', 'OpenCVDetectorWithAffNetKornia']
 
 # Cell
 import cv2
@@ -29,13 +29,17 @@ def laf_from_opencv_kpts(kpts: List[cv2.KeyPoint],
     resp = torch.tensor([x.response for x in kpts], device=device, dtype=torch.float).view(1, N, 1)
     return laf, resp
 
-def visualize_LAF(img, LAF, img_idx = 0, color='r', **kwargs):
+def visualize_LAF(img, LAF, img_idx = 0, color='r', draw_ori = True, **kwargs):
     x, y = K.feature.laf.get_laf_pts_to_draw(K.feature.laf.scale_laf(LAF, 0.5), img_idx)
-    plt.figure(**kwargs)
+    if not draw_ori:
+        x= x[1:]
+        y= y[1:]
+    fig = plt.figure(**kwargs)
     plt.imshow(K.utils.tensor_to_image(img[img_idx]))
     plt.plot(x, y, color)
     plt.show()
-    return
+    return fig
+
 
 def opencv_kpts_from_laf(lafs: torch.Tensor,
                          mrSize: float = 1.0,
@@ -409,11 +413,29 @@ def draw_LAF_inliers_perspective_repjojected(lafs1, lafs2, tent_idxs,
 
 # Cell
 import torch.nn as nn
+import numpy as np
+
+
+def make_keypoints_upright(kpts):
+    unique_kp = []
+    for i, kk in enumerate(kpts):
+        if i > 0:
+            if kk.response == kpts[i - 1].response:
+                continue
+        kk.angle = 0
+        unique_kp.append(kk)
+    top_resps = np.array([kk.response for kk in unique_kp])
+    idxs = np.argsort(top_resps)[::-1]
+    return [unique_kp[i] for i in idxs]
+
+
 class OpenCVDetectorKornia(nn.Module):
-    def __init__(self, opencv_detector, mrSize: float = 6.0):
+    def __init__(self, opencv_detector, mrSize: float = 6.0, make_upright = False, max_kpts = -1):
         super().__init__()
         self.features = opencv_detector
         self.mrSize = mrSize
+        self.make_upright = make_upright
+        self.max_kpts = max_kpts
 
     def forward(self, x:torch.Tensor, mask=None):
         max_val = x.max()
@@ -424,6 +446,10 @@ class OpenCVDetectorKornia(nn.Module):
         if mask is not None:
             mask = K.tensor_to_image(x).astype(np.uint8)
         kpts = self.features.detect(img_np, mask)
+        # Compute descriptors
+        if self.make_upright:
+            kpts = make_keypoints_upright(kpts)
+            kpts = kpts[:min(len(kpts), self.max_kpts)]
         lafs, resp = laf_from_opencv_kpts(kpts, mrSize=self.mrSize, with_resp=True, device=x.device)
         return lafs, resp
 
@@ -466,20 +492,10 @@ class OpenCVDetectorWithAffNetKornia(nn.Module):
         if mask is not None:
             mask = K.tensor_to_image(x).astype(np.uint8)
         kpts = self.features.detect(img_np, mask)
-            # Compute descriptors
+        # Compute descriptors
         if self.make_upright:
-            unique_kp = []
-            for i, kk in enumerate(kpts):
-                if i > 0:
-                    if kk.response == kpts[i - 1].response:
-                        continue
-                kk.angle = 0
-                unique_kp.append(kk)
-            top_resps = np.array([kk.response for kk in unique_kp])
-            idxs = np.argsort(top_resps)[::-1]
-            if self.max_kpts < 0:
-                self.max_kpts = 100000000
-            kpts = [unique_kp[i]  for i in idxs[:min(len(unique_kp), self.max_kpts)]]
+            kpts = make_keypoints_upright(kpts)
+            kpts = kpts[:min(len(kpts), self.max_kpts)]
         lafs, resp = laf_from_opencv_kpts(kpts, mrSize=self.mrSize, with_resp=True, device=x.device)
         ori = KF.get_laf_orientation(lafs)
         lafs = self.affnet(lafs, x.mean(dim=1, keepdim=True))
