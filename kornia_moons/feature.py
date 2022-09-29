@@ -2,9 +2,10 @@
 
 __all__ = ['laf_from_opencv_kpts', 'visualize_LAF', 'opencv_kpts_from_laf', 'laf_from_opencv_ORB_kpts',
            'laf_from_opencv_SIFT_kpts', 'opencv_SIFT_kpts_from_laf', 'opencv_ORB_kpts_from_laf',
-           'cv2_matches_from_kornia', 'kornia_matches_from_cv2', 'to_numpy_image', 'epilines_to_start_end_points',
-           'draw_LAF_matches', 'draw_LAF_matches_from_result_dict', 'draw_LAF_inliers_perspective_repjojected',
-           'make_keypoints_upright', 'OpenCVDetectorKornia', 'OpenCVFeatureKornia', 'OpenCVDetectorWithAffNetKornia']
+           'cv2_matches_from_kornia', 'kornia_matches_from_cv2', 'to_numpy_image', 'to_torch',
+           'epilines_to_start_end_points', 'draw_LAF_matches', 'draw_LAF_matches_from_result_dict',
+           'draw_LAF_inliers_perspective_repjojected', 'make_keypoints_upright', 'OpenCVDetectorKornia',
+           'OpenCVFeatureKornia', 'OpenCVDetectorWithAffNetKornia', 'draw_epipolar_errors_in_single_image']
 
 # Cell
 import cv2
@@ -103,6 +104,17 @@ def to_numpy_image(img: Union[str, np.array, torch.Tensor]):
         raise TypeError('img should be str, np.array or torch.Tensor')
     return img_out
 
+def to_torch(x: Union[List, np.array, torch.Tensor]):
+    if type(x) is List:
+        x_out = torch.tensor(x)
+    elif isinstance(x, torch.Tensor):
+        x_out = x
+    elif isinstance(x, np.ndarray):
+        x_out = torch.from_numpy(x)
+    else:
+        raise TypeError('img should be List, np.array or torch.Tensor')
+    return x_out
+
 # Cell
 def epilines_to_start_end_points(epi, h, w):
     num = len(epi)
@@ -144,13 +156,14 @@ import kornia as K
 import kornia.feature as KF
 import torch
 def draw_LAF_matches(lafs1, lafs2, tent_idxs,
-                        img1, img2, inlier_mask = None,
+                     img1, img2, inlier_mask = None,
                         draw_dict={"inlier_color": (0.2, 1, 0.2),
                                "tentative_color": (0.8, 0.8, 0),
                                "feature_color": (0.2, 0.5, 1),
                                   "vertical": False},
                         Fm: Optional[np.array] = None, H: Optional[np.array] = None,
-                        ax: Optional = None):
+                        ax: Optional = None,
+                        return_axis=False):
     '''This function draws LAFs, tentative matches, inliers epipolar lines (if F is provided),
     and image1 corners reprojection into image 2 (if H is provided)'''
     inlier_mask = np.array(inlier_mask).reshape(-1)
@@ -276,6 +289,8 @@ def draw_LAF_matches(lafs1, lafs2, tent_idxs,
         ax.set_xlim([0,max(w,w2)])
         ax.set_ylim([h+h2, 0])
         ax.margins(0,0)
+    if return_axis:
+        return ax
     return
 
 # Cell
@@ -310,7 +325,8 @@ def draw_LAF_inliers_perspective_repjojected(lafs1, lafs2, tent_idxs,
                                "reprojected_color": (0.2, 0.5, 1),
                                 "vertical": False},
                         H: np.array = None,
-                        ax: Optional = None):
+                        ax: Optional = None,
+                        return_axis = False):
     '''This function draws tentative matches and inliers given the homography H'''
     inlier_mask = np.array(inlier_mask).reshape(-1)
     img1 = to_numpy_image(img1)
@@ -409,6 +425,8 @@ def draw_LAF_inliers_perspective_repjojected(lafs1, lafs2, tent_idxs,
         ax.set_xlim([0,max(w,w2)])
         ax.set_ylim([h+h2, 0])
         ax.margins(0,0)
+    if return_axis:
+        return ax
     return
 
 # Cell
@@ -501,3 +519,53 @@ class OpenCVDetectorWithAffNetKornia(nn.Module):
         lafs = self.affnet(lafs, x.mean(dim=1, keepdim=True))
         lafs = KF.set_laf_orientation(lafs, ori)
         return lafs, resp
+
+# Cell
+from kornia.geometry.epipolar import get_closest_point_on_epipolar_line
+def draw_epipolar_errors_in_single_image(kp1: np.array, kp2: np.array,
+                                         Fm1to2: np.array, img,
+                                          draw_dict={"error_color": (1, 0.2, 0.2),
+                                                     "feature_color": (0.2, 0.5, 1),
+                                                     "figsize": (10,10),
+                                                     "markersize": 8},
+                                         img_index: int = 2,
+                                         ax: Optional = None,
+                                         title = None):
+    '''This function draws epipolar errors in single image'''
+    img = to_numpy_image(img)
+    pts1 = to_torch(kp1)[None]
+    pts2 = to_torch(kp2)[None]
+    Fm = to_torch(Fm1to2)
+    if len(Fm.shape) == 2:
+        Fm = Fm[None]
+    assert img_index in [1,2]
+    if img_index == 1:
+        pts1, pts2 = pts2, pts1
+        Fm = Fm.transpose(1, 2)
+    closest_pts = get_closest_point_on_epipolar_line(pts1, pts2, Fm)
+
+    # If we have no axes, create one
+    if ax is None:
+        fig, ax = plt.subplots(figsize=draw_dict["figsize"])
+    ax.imshow(img)
+    plt.scatter(pts1[0, :, 0].numpy(),
+                pts1[0, :, 1].numpy(),
+                s=draw_dict["markersize"]**2,
+                label='GT points',
+                color = draw_dict['feature_color'])
+    plt.scatter(closest_pts[0, :, 0].numpy(),
+                closest_pts[0, :, 1].numpy(),
+                s=draw_dict["markersize"]**2,
+                label='est. projection',
+                color = draw_dict['error_color'], marker='x')
+
+    plt.plot(torch.cat([pts1[0, :, 0].view(1,-1),
+                        closest_pts[0, :, 0].view(1,-1)],dim=0).numpy(),
+             torch.cat([pts1[0, :, 1].view(1,-1),
+                        closest_pts[0, :, 1].view(1,-1)], dim=0).numpy(),
+             label='error', color=draw_dict['error_color'])
+
+    plt.legend(['GT points','est. projection','errors'])
+    if title is not None:
+        plt.title(title)
+    return ax

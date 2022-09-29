@@ -12,6 +12,7 @@ index = {"laf_from_opencv_kpts": "feature.ipynb",
          "cv2_matches_from_kornia": "feature.ipynb",
          "kornia_matches_from_cv2": "feature.ipynb",
          "to_numpy_image": "feature.ipynb",
+         "to_torch": "feature.ipynb",
          "epilines_to_start_end_points": "feature.ipynb",
          "draw_LAF_matches": "feature.ipynb",
          "draw_LAF_matches_from_result_dict": "feature.ipynb",
@@ -19,7 +20,8 @@ index = {"laf_from_opencv_kpts": "feature.ipynb",
          "make_keypoints_upright": "feature.ipynb",
          "OpenCVDetectorKornia": "feature.ipynb",
          "OpenCVFeatureKornia": "feature.ipynb",
-         "OpenCVDetectorWithAffNetKornia": "feature.ipynb"}
+         "OpenCVDetectorWithAffNetKornia": "feature.ipynb",
+         "draw_epipolar_errors_in_single_image": "feature.ipynb"}
 
 modules = ["feature.py"]
 
