@@ -548,8 +548,8 @@ def draw_epipolar_errors_in_single_image(kp1: np.array, kp2: np.array,
     if ax is None:
         fig, ax = plt.subplots(figsize=draw_dict["figsize"])
     ax.imshow(img)
-    plt.scatter(pts1[0, :, 0].numpy(),
-                pts1[0, :, 1].numpy(),
+    plt.scatter(pts2[0, :, 0].numpy(),
+                pts2[0, :, 1].numpy(),
                 s=draw_dict["markersize"]**2,
                 label='GT points',
                 color = draw_dict['feature_color'])
@@ -559,9 +559,9 @@ def draw_epipolar_errors_in_single_image(kp1: np.array, kp2: np.array,
                 label='est. projection',
                 color = draw_dict['error_color'], marker='x')
 
-    plt.plot(torch.cat([pts1[0, :, 0].view(1,-1),
+    plt.plot(torch.cat([pts2[0, :, 0].view(1,-1),
                         closest_pts[0, :, 0].view(1,-1)],dim=0).numpy(),
-             torch.cat([pts1[0, :, 1].view(1,-1),
+             torch.cat([pts2[0, :, 1].view(1,-1),
                         closest_pts[0, :, 1].view(1,-1)], dim=0).numpy(),
              label='error', color=draw_dict['error_color'])
 
