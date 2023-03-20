@@ -224,8 +224,8 @@ def draw_LAF_matches(lafs1, lafs2, tent_idxs,
         new_img[0:h, 0:w] = img1
         new_img[h:h+h2, 0:w2] = img2
 
-    x1,y1 = KF.laf.get_laf_pts_to_draw(lafs1, 0)
-    x2,y2 = KF.laf.get_laf_pts_to_draw(lafs2, 0)
+    x1, y1 = np.array(KF.laf.get_laf_pts_to_draw(lafs1, 0))
+    x2, y2 = np.array(KF.laf.get_laf_pts_to_draw(lafs2, 0))
     if vert:
         y2+=h
     else:
