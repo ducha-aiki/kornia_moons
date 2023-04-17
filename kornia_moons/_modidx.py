@@ -50,6 +50,7 @@ d = { 'settings': { 'branch': 'master',
                                                                                           'kornia_moons/feature.py'),
                                       'kornia_moons.feature.opencv_kpts_from_laf': ( 'feature.html#opencv_kpts_from_laf',
                                                                                      'kornia_moons/feature.py'),
+                                      'kornia_moons.feature.to_np': ('feature.html#to_np', 'kornia_moons/feature.py'),
                                       'kornia_moons.feature.to_numpy_image': ('feature.html#to_numpy_image', 'kornia_moons/feature.py'),
                                       'kornia_moons.feature.to_torch': ('feature.html#to_torch', 'kornia_moons/feature.py'),
                                       'kornia_moons.feature.visualize_LAF': ('feature.html#visualize_laf', 'kornia_moons/feature.py')}}}
