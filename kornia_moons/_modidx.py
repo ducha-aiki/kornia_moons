@@ -53,4 +53,7 @@ d = { 'settings': { 'branch': 'master',
                                                                                              'kornia_moons/viz.py'),
                                   'kornia_moons.viz.epilines_to_start_end_points': ( 'viz.html#epilines_to_start_end_points',
                                                                                      'kornia_moons/viz.py'),
+                                  'kornia_moons.viz.plot_color_line_matches': ('viz.html#plot_color_line_matches', 'kornia_moons/viz.py'),
+                                  'kornia_moons.viz.plot_images': ('viz.html#plot_images', 'kornia_moons/viz.py'),
+                                  'kornia_moons.viz.plot_lines': ('viz.html#plot_lines', 'kornia_moons/viz.py'),
                                   'kornia_moons.viz.visualize_LAF': ('viz.html#visualize_laf', 'kornia_moons/viz.py')}}}
