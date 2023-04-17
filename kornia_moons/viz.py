@@ -2,7 +2,8 @@
 
 # %% auto 0
 __all__ = ['visualize_LAF', 'epilines_to_start_end_points', 'draw_LAF_matches', 'draw_LAF_matches_from_result_dict',
-           'draw_LAF_inliers_perspective_repjojected', 'draw_epipolar_errors_in_single_image']
+           'draw_LAF_inliers_perspective_repjojected', 'draw_epipolar_errors_in_single_image', 'plot_images',
+           'plot_lines', 'plot_color_line_matches']
 
 # %% ../viz.ipynb 3
 import torch
@@ -22,17 +23,23 @@ from typing import Union
 
 
 # %% ../viz.ipynb 6
-def visualize_LAF(img, LAF, img_idx = 0, color='r', draw_ori = True, **kwargs):
+def visualize_LAF(img, LAF, img_idx = 0, color='r', linewidth=1,
+                  draw_ori = True, fig=None,
+                  ax = None, return_fig_ax = False, **kwargs):
     from kornia_moons.feature import to_numpy_image
     x, y = kornia.feature.laf.get_laf_pts_to_draw(kornia.feature.laf.scale_laf(LAF, 0.5), img_idx)
     if not draw_ori:
         x= x[1:]
         y= y[1:]
-    fig = plt.figure(**kwargs)
-    plt.imshow(to_numpy_image(img[img_idx]))
-    plt.plot(x, y, color)
-    plt.show()
-    return fig
+    if (fig is None and ax is None):
+        fig, ax = plt.subplots(1,1, **kwargs)
+    if (fig is not None and ax is None):
+        ax = fig.add_axes([0, 0, 1, 1])
+    
+    ax.imshow(to_numpy_image(img[img_idx]))
+    ax.plot(x, y, color, linewidth=linewidth)
+    if return_fig_ax : return fig, ax
+    return
 
 
 # %% ../viz.ipynb 12
@@ -75,6 +82,7 @@ def epilines_to_start_end_points(epi, h, w):
 import kornia as K
 import kornia.feature as KF
 import torch
+
 def draw_LAF_matches(lafs1, lafs2, tent_idxs,  
                      img1, img2, inlier_mask = None, 
                         draw_dict={"inlier_color": (0.2, 1, 0.2),
@@ -82,8 +90,8 @@ def draw_LAF_matches(lafs1, lafs2, tent_idxs,
                                "feature_color": (0.2, 0.5, 1),
                                   "vertical": False}, 
                         Fm: Optional[np.array] = None, H: Optional[np.array] = None,
-                        ax: Optional = None,
-                        return_axis=False):
+                        fig = None, ax: Optional = None,
+                        return_fig_ax=False):
     '''This function draws LAFs, tentative matches, inliers epipolar lines (if F is provided),
     and image1 corners reprojection into image 2 (if H is provided)'''
     if inlier_mask is not None:
@@ -106,8 +114,10 @@ def draw_LAF_matches(lafs1, lafs2, tent_idxs,
     xy1 = KF.get_laf_center(to_torch(lafs1)).reshape(-1, 2)
     xy2 = KF.get_laf_center(to_torch(lafs2)).reshape(-1, 2)
     # If we have no axes, create one
-    if ax is None:
-        fig, ax = plt.subplots(figsize=(20,10))
+    if (fig is None and ax is None):
+        fig, ax = plt.subplots(1,1, figsize=(20,10))
+    if (fig is not None and ax is None):
+        ax = fig.add_axes([0, 0, 1, 1])
 
     tent_cv2 = cv2_matches_from_kornia(torch.ones(len(tent_idxs)), tent_idxs)
     tent_corrs = torch.stack([xy1[tent_idxs[:,0]], xy2[tent_idxs[:,1]]])
@@ -210,8 +220,7 @@ def draw_LAF_matches(lafs1, lafs2, tent_idxs,
         ax.set_xlim([0,max(w,w2)])
         ax.set_ylim([h+h2, 0])
         ax.margins(0,0)
-    if return_axis:
-        return ax
+    if return_fig_ax : return fig, ax
     return 
 
 # %% ../viz.ipynb 26
@@ -242,8 +251,8 @@ def draw_LAF_inliers_perspective_repjojected(lafs1, lafs2, tent_idxs,
                                "reprojected_color": (0.2, 0.5, 1),
                                 "vertical": False}, 
                         H: np.array = None,
-                        ax: Optional = None,
-                        return_axis = False):
+                        fig = None, ax: Optional = None,
+                        return_fig_ax=False):
     '''This function draws tentative matches and inliers given the homography H'''
     import kornia as K
     import kornia.feature as KF
@@ -265,8 +274,10 @@ def draw_LAF_inliers_perspective_repjojected(lafs1, lafs2, tent_idxs,
     xy2 = KF.get_laf_center(lafs2).reshape(-1, 2)
     
     # If we have no axes, create one
-    if ax is None:
-        fig, ax = plt.subplots(figsize=(20,10))
+    if (fig is None and ax is None):
+        fig, ax = plt.subplots(1,1, figsize=(20,10))
+    if (fig is not None and ax is None):
+        ax = fig.add_axes([0, 0, 1, 1])
 
     tent_corrs_in1 = torch.stack([xy1[tent_idxs[:,0]],
                                   KF.get_laf_center(lafs2_in1).reshape(-1, 2)[tent_idxs[:,1]]])
@@ -345,8 +356,7 @@ def draw_LAF_inliers_perspective_repjojected(lafs1, lafs2, tent_idxs,
         ax.set_xlim([0,max(w,w2)])
         ax.set_ylim([h+h2, 0])
         ax.margins(0,0)
-    if return_axis:
-        return ax
+    if return_fig_ax : return fig, ax
     return 
 
 # %% ../viz.ipynb 38
@@ -398,3 +408,108 @@ def draw_epipolar_errors_in_single_image(kp1: np.array, kp2: np.array,
     if title is not None:
         plt.title(title)
     return ax
+
+# %% ../viz.ipynb 40
+def plot_images(imgs, titles=None, cmaps="gray", dpi=100, size=6, pad=0.5):
+    """Plot a set of images horizontally.
+    Args:
+        imgs: a list of NumPy or PyTorch images, RGB (H, W, 3) or mono (H, W).
+        titles: a list of strings, as titles for each image.
+        cmaps: colormaps for monochrome images.
+    """
+    import matplotlib
+    import matplotlib.colors as mcolors
+    import matplotlib.pyplot as plt
+
+    n = len(imgs)
+    if not isinstance(cmaps, (list, tuple)):
+        cmaps = [cmaps] * n
+    figsize = (size * n, size * 3 / 4) if size is not None else None
+    fig, ax = plt.subplots(1, n, figsize=figsize, dpi=dpi)
+    if n == 1:
+        ax = [ax]
+    for i in range(n):
+        ax[i].imshow(imgs[i], cmap=plt.get_cmap(cmaps[i]))
+        ax[i].get_yaxis().set_ticks([])
+        ax[i].get_xaxis().set_ticks([])
+        ax[i].set_axis_off()
+        for spine in ax[i].spines.values():  # remove frame
+            spine.set_visible(False)
+        if titles:
+            ax[i].set_title(titles[i])
+    fig.tight_layout(pad=pad)
+
+
+def plot_lines(lines, line_colors="orange", point_colors="cyan", ps=4, lw=2, indices=(0, 1)):
+    """Plot lines and endpoints for existing images.
+    Args:
+        lines: list of ndarrays of size (N, 2, 2). order: [..., 0] is y, [..., 0] is x
+        colors: string, or list of list of tuples (one for each keypoints).
+        ps: size of the keypoints as float pixels.
+        lw: line width as float pixels.
+        indices: indices of the images to draw the matches on.
+    """
+    import matplotlib
+    import matplotlib.colors as mcolors
+    import matplotlib.pyplot as plt
+    if not isinstance(line_colors, list):
+        line_colors = [line_colors] * len(lines)
+    if not isinstance(point_colors, list):
+        point_colors = [point_colors] * len(lines)
+
+    fig = plt.gcf()
+    ax = fig.axes
+    assert len(ax) > max(indices)
+    axes = [ax[i] for i in indices]
+    fig.canvas.draw()
+
+    # Plot the lines and junctions
+    for a, l, lc, pc in zip(axes, lines, line_colors, point_colors):
+        for i in range(len(l)):
+            line = matplotlib.lines.Line2D(
+                (l[i, 1, 1], l[i, 0, 1]),
+                (l[i, 1, 0], l[i, 0, 0]),
+                zorder=1,
+                c=lc,
+                linewidth=lw,
+            )
+            a.add_line(line)
+        pts = l.reshape(-1, 2)
+        a.scatter(pts[:, 1], pts[:, 0], c=pc, s=ps, linewidths=0, zorder=2)
+
+
+def plot_color_line_matches(lines, lw=2, indices=(0, 1)):
+    """Plot line matches for existing images with multiple colors.
+    Args:
+        lines: list of ndarrays of size (N, 2, 2). order: [..., 0] is y, [..., 0] is x
+        lw: line width as float pixels.
+        indices: indices of the images to draw the matches on.
+    """
+    import matplotlib
+    import matplotlib.colors as mcolors
+    import matplotlib.pyplot as plt
+
+    n_lines = len(lines[0])
+
+    cmap = plt.get_cmap("nipy_spectral", lut=n_lines)
+    colors = np.array([mcolors.rgb2hex(cmap(i)) for i in range(cmap.N)])
+
+    np.random.shuffle(colors)
+
+    fig = plt.gcf()
+    ax = fig.axes
+    assert len(ax) > max(indices)
+    axes = [ax[i] for i in indices]
+    fig.canvas.draw()
+
+    # Plot the lines
+    for a, l in zip(axes, lines):
+        for i in range(len(l)):
+            line = matplotlib.lines.Line2D(
+                (l[i, 1, 1], l[i, 0, 1]),
+                (l[i, 1, 0], l[i, 0, 0]),
+                zorder=1,
+                c=colors[i],
+                linewidth=lw,
+            )
+            a.add_line(line)
