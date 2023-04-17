@@ -3,3 +3,4 @@ website:
     contents:
       - index.ipynb
       - feature.ipynb
+      - viz.ipynb
