@@ -22,17 +22,23 @@ from typing import Union
 
 
 # %% ../viz.ipynb 6
-def visualize_LAF(img, LAF, img_idx = 0, color='r', draw_ori = True, **kwargs):
+def visualize_LAF(img, LAF, img_idx = 0, color='r', linewidth=1,
+                  draw_ori = True, fig=None,
+                  ax = None, return_fig_ax = False, **kwargs):
     from kornia_moons.feature import to_numpy_image
     x, y = kornia.feature.laf.get_laf_pts_to_draw(kornia.feature.laf.scale_laf(LAF, 0.5), img_idx)
     if not draw_ori:
         x= x[1:]
         y= y[1:]
-    fig = plt.figure(**kwargs)
-    plt.imshow(to_numpy_image(img[img_idx]))
-    plt.plot(x, y, color)
-    plt.show()
-    return fig
+    if (fig is None and ax is None):
+        fig, ax = plt.subplots(1,1, **kwargs)
+    if (fig is not None and ax is None):
+        ax = fig.add_axes([0, 0, 1, 1])
+    
+    ax.imshow(to_numpy_image(img[img_idx]))
+    ax.plot(x, y, color, linewidth=linewidth)
+    if return_fig_ax : return fig, ax
+    return
 
 
 # %% ../viz.ipynb 12
@@ -75,6 +81,7 @@ def epilines_to_start_end_points(epi, h, w):
 import kornia as K
 import kornia.feature as KF
 import torch
+
 def draw_LAF_matches(lafs1, lafs2, tent_idxs,  
                      img1, img2, inlier_mask = None, 
                         draw_dict={"inlier_color": (0.2, 1, 0.2),
@@ -82,8 +89,8 @@ def draw_LAF_matches(lafs1, lafs2, tent_idxs,
                                "feature_color": (0.2, 0.5, 1),
                                   "vertical": False}, 
                         Fm: Optional[np.array] = None, H: Optional[np.array] = None,
-                        ax: Optional = None,
-                        return_axis=False):
+                        fig = None, ax: Optional = None,
+                        return_fig_ax=False):
     '''This function draws LAFs, tentative matches, inliers epipolar lines (if F is provided),
     and image1 corners reprojection into image 2 (if H is provided)'''
     if inlier_mask is not None:
@@ -106,8 +113,10 @@ def draw_LAF_matches(lafs1, lafs2, tent_idxs,
     xy1 = KF.get_laf_center(to_torch(lafs1)).reshape(-1, 2)
     xy2 = KF.get_laf_center(to_torch(lafs2)).reshape(-1, 2)
     # If we have no axes, create one
-    if ax is None:
-        fig, ax = plt.subplots(figsize=(20,10))
+    if (fig is None and ax is None):
+        fig, ax = plt.subplots(1,1, figsize=(20,10))
+    if (fig is not None and ax is None):
+        ax = fig.add_axes([0, 0, 1, 1])
 
     tent_cv2 = cv2_matches_from_kornia(torch.ones(len(tent_idxs)), tent_idxs)
     tent_corrs = torch.stack([xy1[tent_idxs[:,0]], xy2[tent_idxs[:,1]]])
@@ -210,8 +219,7 @@ def draw_LAF_matches(lafs1, lafs2, tent_idxs,
         ax.set_xlim([0,max(w,w2)])
         ax.set_ylim([h+h2, 0])
         ax.margins(0,0)
-    if return_axis:
-        return ax
+    if return_fig_ax : return fig, ax
     return 
 
 # %% ../viz.ipynb 26
@@ -242,8 +250,8 @@ def draw_LAF_inliers_perspective_repjojected(lafs1, lafs2, tent_idxs,
                                "reprojected_color": (0.2, 0.5, 1),
                                 "vertical": False}, 
                         H: np.array = None,
-                        ax: Optional = None,
-                        return_axis = False):
+                        fig = None, ax: Optional = None,
+                        return_fig_ax=False):
     '''This function draws tentative matches and inliers given the homography H'''
     import kornia as K
     import kornia.feature as KF
@@ -265,8 +273,10 @@ def draw_LAF_inliers_perspective_repjojected(lafs1, lafs2, tent_idxs,
     xy2 = KF.get_laf_center(lafs2).reshape(-1, 2)
     
     # If we have no axes, create one
-    if ax is None:
-        fig, ax = plt.subplots(figsize=(20,10))
+    if (fig is None and ax is None):
+        fig, ax = plt.subplots(1,1, figsize=(20,10))
+    if (fig is not None and ax is None):
+        ax = fig.add_axes([0, 0, 1, 1])
 
     tent_corrs_in1 = torch.stack([xy1[tent_idxs[:,0]],
                                   KF.get_laf_center(lafs2_in1).reshape(-1, 2)[tent_idxs[:,1]]])
@@ -345,8 +355,7 @@ def draw_LAF_inliers_perspective_repjojected(lafs1, lafs2, tent_idxs,
         ax.set_xlim([0,max(w,w2)])
         ax.set_ylim([h+h2, 0])
         ax.margins(0,0)
-    if return_axis:
-        return ax
+    if return_fig_ax : return fig, ax
     return 
 
 # %% ../viz.ipynb 38
