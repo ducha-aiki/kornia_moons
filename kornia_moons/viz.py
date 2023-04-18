@@ -21,7 +21,6 @@ from torch import allclose
 from typing import Union
 
 
-
 # %% ../viz.ipynb 6
 def visualize_LAF(img, LAF, img_idx = 0, color='r', linewidth=1,
                   draw_ori = True, fig=None,
@@ -94,6 +93,7 @@ def draw_LAF_matches(lafs1, lafs2, tent_idxs,
                         return_fig_ax=False):
     '''This function draws LAFs, tentative matches, inliers epipolar lines (if F is provided),
     and image1 corners reprojection into image 2 (if H is provided)'''
+    from kornia_moons.feature import to_numpy_image, cv2_matches_from_kornia, to_np, to_torch
     if inlier_mask is not None:
         inlier_mask = np.array(inlier_mask).reshape(-1)
     img1 = to_numpy_image(img1)
@@ -257,6 +257,7 @@ def draw_LAF_inliers_perspective_repjojected(lafs1, lafs2, tent_idxs,
     import kornia as K
     import kornia.feature as KF
     import kornia.geometry as KG
+    from kornia_moons.feature import to_numpy_image, cv2_matches_from_kornia, to_np, to_torch
     inlier_mask = np.array(inlier_mask).reshape(-1)
     img1 = to_numpy_image(img1)
     img2 = to_numpy_image(img2)
@@ -371,6 +372,8 @@ def draw_epipolar_errors_in_single_image(kp1: np.array, kp2: np.array,
                                          title = None):
     '''This function draws epipolar errors in single image'''
     from kornia.geometry.epipolar import get_closest_point_on_epipolar_line
+    from kornia_moons.feature import to_numpy_image, cv2_matches_from_kornia, to_np, to_torch
+    
     img = to_numpy_image(img)
     pts1 = to_torch(kp1)[None]
     pts2 = to_torch(kp2)[None]
