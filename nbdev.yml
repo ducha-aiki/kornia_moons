@@ -6,4 +6,4 @@ website:
   site-url: "https://ducha-aiki.github.io/kornia_moons/"
   description: "Conversions between kornia and other computer vision libraries formats"
   repo-branch: master
-  repo-url: "https://github.com/ducha-aiki/kornia_moons/tree/master/"
+  repo-url: "https://github.com/ducha-aiki/kornia_moons/"

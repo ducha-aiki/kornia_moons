@@ -3,7 +3,7 @@
 d = { 'settings': { 'branch': 'master',
                 'doc_baseurl': '/kornia_moons/',
                 'doc_host': 'https://ducha-aiki.github.io',
-                'git_url': 'https://github.com/ducha-aiki/kornia_moons/tree/master/',
+                'git_url': 'https://github.com/ducha-aiki/kornia_moons/',
                 'lib_path': 'kornia_moons'},
   'syms': { 'kornia_moons.feature': { 'kornia_moons.feature.OpenCVDetectorKornia': ( 'feature.html#opencvdetectorkornia',
                                                                                      'kornia_moons/feature.py'),
