@@ -170,7 +170,8 @@ def draw_LAF_matches(lafs1, lafs2, tent_idxs,
         ax.plot(x1, y1, color=fc)
         ax.plot(x2, y2, color=fc)
         
-    #Drawgin tentatives
+    tent_corrs = tent_corrs.detach().cpu().numpy()
+    #Drawing tentatives
     try:
         tc = draw_dict['tentative_color']
     except:
