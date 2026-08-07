@@ -38,11 +38,11 @@ out_img2 = cv2.drawKeypoints(img, kps_back, None, flags=cv2.DRAW_MATCHES_FLAGS_D
 plt.imshow(out_img2)
 ```
 
-![ORB keypoints drawn by OpenCV](docs/assets/orb-keypoints.png)
+![ORB keypoints drawn by OpenCV](https://raw.githubusercontent.com/ducha-aiki/kornia_moons/master/docs/assets/orb-keypoints.png)
 
-![The same keypoints as kornia LAFs](docs/assets/laf-visualization.png)
+![The same keypoints as kornia LAFs](https://raw.githubusercontent.com/ducha-aiki/kornia_moons/master/docs/assets/laf-visualization.png)
 
-![Keypoints converted back to OpenCV](docs/assets/roundtrip-keypoints.png)
+![Keypoints converted back to OpenCV](https://raw.githubusercontent.com/ducha-aiki/kornia_moons/master/docs/assets/roundtrip-keypoints.png)
 
 See the [feature tutorial](https://ducha-aiki.github.io/kornia_moons/feature/) and [visualization tutorial](https://ducha-aiki.github.io/kornia_moons/viz/) for more.
 

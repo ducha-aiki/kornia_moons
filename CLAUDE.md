@@ -23,7 +23,7 @@ mkdocs serve                                        # live docs preview
 mkdocs build                                        # build docs site
 ```
 
-Release: bump `__version__`, then `python -m build` + `twine upload`.
+Release: bump `__version__`, then build from a clean checkout — `python -m build` run in a working tree would bundle untracked files like `kornia_moons/line.py` into the wheel (setuptools packages every .py in the package dir, tracked or not). Use `git worktree add /tmp/release-checkout master && cd /tmp/release-checkout && python -m build`, then `twine upload dist/*`.
 
 ## Conventions
 
