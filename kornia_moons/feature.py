@@ -44,16 +44,23 @@ def to_numpy_image(img: Union[str, np.array, torch.Tensor]):
     return img_out
 
 def to_torch(x: Union[List, np.array, torch.Tensor]):
-    """Convert a list or numpy array to a torch tensor.
+    """Convert a numpy array to a torch tensor, passing tensors through.
 
     Args:
-        x: List, numpy array, or torch tensor to convert.
+        x: Numpy array or torch tensor to convert.
 
     Returns:
         ``x`` as a ``torch.Tensor``.
 
     Raises:
-        TypeError: If ``x`` is not a List, np.ndarray, or torch.Tensor.
+        TypeError: If ``x`` is not an np.ndarray or torch.Tensor.
+
+    .. note::
+        Passing a plain Python ``list`` currently raises ``TypeError``
+        despite the ``List`` type hint: the implementation checks
+        ``type(x) is List`` against ``typing.List``, which never matches a
+        real list's type. Convert to ``np.ndarray`` first if you have a
+        list.
     """
     if type(x) is List:
         x_out = torch.tensor(x)
@@ -277,8 +284,10 @@ class OpenCVDetectorKornia(nn.Module):
             ``cv2.SIFT_create()``).
         mrSize: Measurement-region scale multiplier (6.0 for SIFT, 1.0 for ORB).
         make_upright: If True, deduplicate keypoints and zero their angles.
-        max_kpts: Keep at most this many keypoints when ``make_upright`` is
-            set; -1 keeps the OpenCV output as is.
+        max_kpts: Keep at most this many keypoints; only applied when
+            ``make_upright`` is True. With the default ``-1``, the slice
+            ``kpts[:-1]`` drops the final keypoint instead of keeping
+            everything — pass an explicit positive limit to control this.
 
     Example:
         >>> detector = OpenCVDetectorKornia(cv2.SIFT_create(500))
@@ -376,8 +385,10 @@ class OpenCVDetectorWithAffNetKornia(nn.Module):
         opencv_detector: Any OpenCV detector exposing ``detect``.
         make_upright: If True, deduplicate keypoints and zero their angles.
         mrSize: Measurement-region scale multiplier (6.0 for SIFT, 1.0 for ORB).
-        max_kpts: Keep at most this many keypoints when ``make_upright`` is
-            set; -1 keeps the OpenCV output as is.
+        max_kpts: Keep at most this many keypoints; only applied when
+            ``make_upright`` is True. With the default ``-1``, the slice
+            ``kpts[:-1]`` drops the final keypoint instead of keeping
+            everything — pass an explicit positive limit to control this.
 
     Example:
         >>> detector = OpenCVDetectorWithAffNetKornia(cv2.SIFT_create(500))
