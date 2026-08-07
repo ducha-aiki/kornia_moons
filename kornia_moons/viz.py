@@ -228,7 +228,7 @@ def draw_LAF_matches_from_result_dict(result_dict,
         H = result_dict['H']
     else:
         H = None
-    if 'F' in rbesult_dict:
+    if 'F' in result_dict:
         Fm = result_dict['F']
     else:
         Fm = None

@@ -6,6 +6,7 @@ from pathlib import Path
 
 import cv2
 import kornia
+import numpy as np
 import pytest
 import torch
 from kornia.utils import image_to_tensor
@@ -13,6 +14,7 @@ from kornia.utils import image_to_tensor
 from kornia_moons.feature import laf_from_opencv_kpts
 from kornia_moons.viz import (
     draw_LAF_matches,
+    draw_LAF_matches_from_result_dict,
     epilines_to_start_end_points,
     plot_images,
     plot_lines,
@@ -67,3 +69,30 @@ def test_plot_images_and_lines(img):
     plot_images([img, img], ["a", "b"])
     segs = torch.tensor([[[0.0, 0.0], [10.0, 10.0]]])
     plot_lines([segs, segs], indices=(0, 1))
+
+
+def _result_dict(lafs, descs, with_F=False):
+    d = torch.from_numpy(descs).float()
+    _, idxs = kornia.feature.match_nn(d, d)
+    rd = {
+        "feat_dict1": {"lafs": lafs},
+        "feat_dict2": {"lafs": lafs},
+        "tents_dict": {"idxs": idxs},
+        "inlier_mask": [True] * len(idxs),
+    }
+    if with_F:
+        # a valid rank-2 fundamental-like matrix is enough for drawing epilines
+        rd["F"] = np.array(
+            [[0.0, 0.0, -1.0], [0.0, 0.0, -1.0], [1.0, 1.0, 0.0]]
+        )
+    return rd
+
+
+def test_draw_laf_matches_from_result_dict(img, lafs_descs):
+    lafs, _, descs = lafs_descs
+    draw_LAF_matches_from_result_dict(_result_dict(lafs, descs), img, img)
+
+
+def test_draw_laf_matches_from_result_dict_with_F(img, lafs_descs):
+    lafs, _, descs = lafs_descs
+    draw_LAF_matches_from_result_dict(_result_dict(lafs, descs, with_F=True), img, img)
