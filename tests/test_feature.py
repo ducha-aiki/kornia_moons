@@ -144,11 +144,13 @@ def test_to_torch_rejects_unsupported_type():
         to_torch(42)
 
 
-def test_detector_max_kpts_default_keeps_all(img):
+@pytest.mark.parametrize("max_kpts", [-1, 0])
+def test_detector_max_kpts_default_keeps_all(img, max_kpts):
     # regression: make_upright=True with default max_kpts=-1 used to drop the last keypoint
     expected = len(make_keypoints_upright(list(cv2.SIFT_create(500).detect(img, None))))
     timg255 = image_to_tensor(img, False).float()  # 0-255 range: exact uint8 round-trip
-    lafs, resp = OpenCVDetectorKornia(cv2.SIFT_create(500), make_upright=True)(timg255)
+    lafs, resp = OpenCVDetectorKornia(
+        cv2.SIFT_create(500), make_upright=True, max_kpts=max_kpts)(timg255)
     assert lafs.shape[1] == expected
 
 
