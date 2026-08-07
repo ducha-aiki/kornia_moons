@@ -130,3 +130,14 @@ def test_opencv_detector_affnet(img):
     det = OpenCVDetectorWithAffNetKornia(cv2.SIFT_create(500), make_upright=True)
     lafs, resp = det(timg)
     assert lafs.dim() == 4 and lafs.shape[-2:] == (2, 3)
+
+
+def test_to_torch_from_list():
+    t = to_torch([1.0, 2.0, 3.0])
+    assert isinstance(t, torch.Tensor)
+    assert torch.allclose(t, torch.tensor([1.0, 2.0, 3.0]))
+
+
+def test_to_torch_rejects_unsupported_type():
+    with pytest.raises(TypeError):
+        to_torch(42)

@@ -44,25 +44,18 @@ def to_numpy_image(img: Union[str, np.array, torch.Tensor]):
     return img_out
 
 def to_torch(x: Union[List, np.array, torch.Tensor]):
-    """Convert a numpy array to a torch tensor, passing tensors through.
+    """Convert a Python list or numpy array to a torch tensor, passing tensors through.
 
     Args:
-        x: Numpy array or torch tensor to convert.
+        x: List, numpy array, or torch tensor to convert.
 
     Returns:
         ``x`` as a ``torch.Tensor``.
 
     Raises:
-        TypeError: If ``x`` is not an np.ndarray or torch.Tensor.
-
-    .. note::
-        Passing a plain Python ``list`` currently raises ``TypeError``
-        despite the ``List`` type hint: the implementation checks
-        ``type(x) is List`` against ``typing.List``, which never matches a
-        real list's type. Convert to ``np.ndarray`` first if you have a
-        list.
+        TypeError: If ``x`` is not a list, np.ndarray, or torch.Tensor.
     """
-    if type(x) is List:
+    if isinstance(x, list):
         x_out = torch.tensor(x)
     elif isinstance(x, torch.Tensor):
         x_out = x
