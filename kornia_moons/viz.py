@@ -1,7 +1,14 @@
+"""Visualization helpers for local features and matches.
+
+Drawing kornia LAFs over images, tentative/inlier matches between image
+pairs (with optional epipolar lines or reprojected corners), plain point
+matches from detector-free matchers such as LoFTR, epipolar errors, and
+SOLD2-style line segments.
+"""
 
 __all__ = ['visualize_LAF', 'epilines_to_start_end_points', 'draw_LAF_matches', 'draw_LAF_matches_from_result_dict',
-           'draw_LAF_inliers_perspective_repjojected', 'draw_epipolar_errors_in_single_image', 'plot_images',
-           'plot_lines', 'plot_color_line_matches']
+           'draw_LAF_inliers_perspective_repjojected', 'draw_epipolar_errors_in_single_image', 'draw_point_matches',
+           'plot_images', 'plot_lines', 'plot_color_line_matches']
 
 import torch
 import cv2
@@ -291,6 +298,62 @@ def draw_LAF_matches(lafs1, lafs2, tent_idxs,
         ax.margins(0,0)
     if return_fig_ax : return fig, ax
     return 
+
+def draw_point_matches(pts1, pts2, img1, img2, inlier_mask=None,
+                       draw_dict={"inlier_color": (0.2, 1, 0.2),
+                                  "tentative_color": (0.8, 0.8, 0),
+                                  "vertical": False},
+                       Fm: Optional[np.array] = None, H: Optional[np.array] = None,
+                       fig=None, ax: Optional = None,
+                       return_fig_ax=False):
+    """Draw already-corresponded point matches, as produced by detector-free
+    matchers such as LoFTR, LightGlue, or DISK.
+
+    Point ``i`` of ``pts1`` is matched to point ``i`` of ``pts2``; the points
+    are wrapped into unit-scale upright LAFs and drawn with
+    :func:`draw_LAF_matches`.
+
+    Args:
+        pts1: Matched points in image 1, array/tensor of shape :math:`(N, 2)`.
+        pts2: Matched points in image 2, array/tensor of shape :math:`(N, 2)`.
+        img1: First image, path/tensor/numpy array.
+        img2: Second image, path/tensor/numpy array.
+        inlier_mask: Optional boolean array/list of length N marking inliers.
+        draw_dict: Drawing options, see :func:`draw_LAF_matches`.
+        Fm: Optional fundamental matrix of shape :math:`(3, 3)` used to draw
+            inlier epipolar lines.
+        H: Optional homography of shape :math:`(3, 3)` used to draw the
+            reprojection of image 1's corners into image 2.
+        fig: Optional existing matplotlib figure to draw on.
+        ax: Optional existing matplotlib axes to draw on.
+        return_fig_ax: If True, return the figure and axes instead of None.
+
+    Returns:
+        Tuple of ``(fig, ax)`` if ``return_fig_ax`` is True, otherwise None.
+
+    Example:
+        >>> out = KF.LoFTR(pretrained='outdoor')({"image0": timg1, "image1": timg2})
+        >>> mkpts0 = out['keypoints0'].cpu().numpy()
+        >>> mkpts1 = out['keypoints1'].cpu().numpy()
+        >>> Fm, inliers = cv2.findFundamentalMat(mkpts0, mkpts1, cv2.USAC_MAGSAC, 0.5)
+        >>> draw_point_matches(mkpts0, mkpts1, img1, img2, inliers, Fm=Fm)
+    """
+    from kornia_moons.feature import to_torch
+    pts1 = to_torch(pts1).detach().cpu().float().reshape(-1, 2)
+    pts2 = to_torch(pts2).detach().cpu().float().reshape(-1, 2)
+    if len(pts1) != len(pts2):
+        raise ValueError(
+            f'pts1 and pts2 must be matched 1:1, got {len(pts1)} and {len(pts2)} points')
+    lafs = []
+    for pts in (pts1, pts2):
+        n = pts.shape[0]
+        scale = torch.ones(1, n, 1, 1)
+        ori = torch.zeros(1, n, 1)
+        lafs.append(KF.laf_from_center_scale_ori(pts[None], scale, ori))
+    tent_idxs = torch.arange(len(pts1)).view(-1, 1).repeat(1, 2)
+    return draw_LAF_matches(lafs[0], lafs[1], tent_idxs, img1, img2, inlier_mask,
+                            draw_dict, Fm, H, fig, ax, return_fig_ax)
+
 
 def draw_LAF_matches_from_result_dict(result_dict,
                         img1, img2, 

@@ -13,7 +13,7 @@ Conversions between [kornia](https://github.com/kornia/kornia) and other compute
 - **Keypoint / LAF conversions** — OpenCV `cv2.KeyPoint` ↔ kornia local affine frames (LAFs), handling the differing scale and orientation conventions (`mrSize=6.0` for SIFT, `1.0` for ORB): `laf_from_opencv_SIFT_kpts`, `opencv_ORB_kpts_from_laf`, …
 - **Match conversions** — kornia match tensors ↔ `cv2.DMatch` lists: `cv2_matches_from_kornia`, `kornia_matches_from_cv2`
 - **OpenCV detectors as kornia modules** — `OpenCVDetectorKornia`, `OpenCVFeatureKornia`, `OpenCVDetectorWithAffNetKornia` (with kornia AffNet shape refinement)
-- **Visualization** — LAFs (`visualize_LAF`), matches with inliers/epipolar lines/reprojected corners (`draw_LAF_matches`), epipolar errors, and SOLD2 line segments (`plot_lines`, `plot_color_line_matches`)
+- **Visualization** — LAFs (`visualize_LAF`), matches with inliers/epipolar lines/reprojected corners (`draw_LAF_matches`), plain point matches from LoFTR-style matchers (`draw_point_matches`), epipolar errors, and SOLD2 line segments (`plot_lines`, `plot_color_line_matches`)
 
 ## Install
 

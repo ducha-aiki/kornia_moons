@@ -11,7 +11,7 @@ Conversions between [kornia](https://github.com/kornia/kornia) and other compute
 - **Keypoint / LAF conversions** — OpenCV `cv2.KeyPoint` ↔ kornia local affine frames (LAFs), handling the differing scale and orientation conventions (`mrSize=6.0` for SIFT, `1.0` for ORB): `laf_from_opencv_SIFT_kpts`, `opencv_ORB_kpts_from_laf`, …
 - **Match conversions** — kornia match tensors ↔ `cv2.DMatch` lists: `cv2_matches_from_kornia`, `kornia_matches_from_cv2`
 - **OpenCV detectors as kornia modules** — `OpenCVDetectorKornia`, `OpenCVFeatureKornia`, `OpenCVDetectorWithAffNetKornia` (with kornia AffNet shape refinement)
-- **Visualization** — LAFs (`visualize_LAF`), matches with inliers/epipolar lines/reprojected corners (`draw_LAF_matches`), epipolar errors, and SOLD2 line segments (`plot_lines`, `plot_color_line_matches`)
+- **Visualization** — LAFs (`visualize_LAF`), matches with inliers/epipolar lines/reprojected corners (`draw_LAF_matches`), plain point matches from LoFTR-style matchers (`draw_point_matches`), epipolar errors, and SOLD2 line segments (`plot_lines`, `plot_color_line_matches`)
 
 ## Install
 
@@ -24,7 +24,7 @@ pip install kornia_moons
 ```python
 import matplotlib.pyplot as plt
 import cv2
-import kornia as K
+from kornia.image import image_to_tensor
 
 from kornia_moons.feature import laf_from_opencv_ORB_kpts, opencv_ORB_kpts_from_laf
 from kornia_moons.viz import visualize_LAF
@@ -38,7 +38,7 @@ out_img = cv2.drawKeypoints(img, kps, None, flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RI
 plt.imshow(out_img)
 
 lafs = laf_from_opencv_ORB_kpts(kps)
-visualize_LAF(K.image_to_tensor(img, False), lafs, 0)
+visualize_LAF(image_to_tensor(img, False), lafs, 0)
 
 kps_back = opencv_ORB_kpts_from_laf(lafs)
 out_img2 = cv2.drawKeypoints(img, kps_back, None, flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)

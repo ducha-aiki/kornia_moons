@@ -1,3 +1,9 @@
+"""Conversions between OpenCV and kornia local feature formats.
+
+OpenCV ``cv2.KeyPoint`` lists ↔ kornia local affine frames (LAFs),
+``cv2.DMatch`` lists ↔ kornia match tensors, and ``nn.Module`` wrappers
+that let OpenCV detectors and descriptors slot into kornia pipelines.
+"""
 
 __all__ = ['to_numpy_image', 'to_torch', 'to_np', 'laf_from_opencv_kpts', 'opencv_kpts_from_laf', 'laf_from_opencv_ORB_kpts',
            'laf_from_opencv_SIFT_kpts', 'opencv_SIFT_kpts_from_laf', 'opencv_ORB_kpts_from_laf',
@@ -90,7 +96,9 @@ def laf_from_opencv_kpts(kpts: List[cv2.KeyPoint],
     """Convert OpenCV keypoints into kornia local affine frames (LAFs).
 
     Args:
-        kpts: List of N OpenCV keypoints.
+        kpts: List of N OpenCV keypoints. Keypoints with ``angle < 0``
+            (OpenCV's "orientation not computed" sentinel, e.g. from GFTT
+            or FAST) become upright LAFs.
         mrSize: Measurement-region scale multiplier applied to the keypoint
             size. Use 6.0 for SIFT-like detectors and 1.0 for ORB-like
             detectors, matching the OpenCV description-region conventions.
@@ -109,7 +117,8 @@ def laf_from_opencv_kpts(kpts: List[cv2.KeyPoint],
     N = len(kpts)
     xy = torch.tensor([(x.pt[0], x.pt[1]) for x in kpts ], device=device, dtype=torch.float).view(1, N, 2)
     scales = torch.tensor([(mrSize * x.size) for x in kpts ], device=device, dtype=torch.float).view(1, N, 1, 1)
-    angles = torch.tensor([(-x.angle) for x in kpts ], device=device, dtype=torch.float).view(1, N, 1)
+    # angle < 0 (OpenCV's -1) means "orientation not computed" -> upright
+    angles = torch.tensor([(-x.angle if x.angle >= 0 else 0.0) for x in kpts ], device=device, dtype=torch.float).view(1, N, 1)
     laf = kornia.feature.laf_from_center_scale_ori(xy, scales, angles).reshape(1, -1, 2, 3)
     if not with_resp:
         return laf.reshape(1, -1, 2, 3)
@@ -231,7 +240,9 @@ def kornia_matches_from_cv2(cv2_matches, device=torch.device('cpu')):
     """Convert a list of cv2.DMatch to kornia match distance and index tensors.
 
     Args:
-        cv2_matches: List of N ``cv2.DMatch`` objects.
+        cv2_matches: List of N ``cv2.DMatch`` objects, or the nested list
+            returned by ``cv2.BFMatcher.knnMatch`` / ``radiusMatch``, which
+            is flattened (N is then the total number of matches).
         device: Device to place the output tensors on.
 
     Returns:
@@ -242,6 +253,8 @@ def kornia_matches_from_cv2(cv2_matches, device=torch.device('cpu')):
         >>> cv2_matches = cv2_matches_from_kornia(match_dists, match_idxs)
         >>> match_dists_back, match_idxs_back = kornia_matches_from_cv2(cv2_matches)
     """
+    if len(cv2_matches) > 0 and isinstance(cv2_matches[0], (tuple, list)):
+        cv2_matches = [m for group in cv2_matches for m in group]
     num_matches = len(cv2_matches)
     match_dists = torch.zeros(num_matches, 1, device=device, dtype=torch.float)
     match_idxs = torch.zeros(num_matches, 2, device=device, dtype=torch.long)
