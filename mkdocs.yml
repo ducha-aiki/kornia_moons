@@ -1,0 +1,39 @@
+site_name: kornia_moons
+site_url: https://ducha-aiki.github.io/kornia_moons/
+site_description: Conversions between kornia and other computer vision libraries formats
+repo_url: https://github.com/ducha-aiki/kornia_moons
+repo_name: ducha-aiki/kornia_moons
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+plugins:
+  - search
+  - mkdocs-jupyter:
+      execute: false
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            show_source: true
+            members_order: source
+
+nav:
+  - Home: index.md
+  - Local features tutorial: feature.ipynb
+  - Visualization tutorial: viz.ipynb
+  - API reference: api.md
+
+exclude_docs: |
+  superpowers/

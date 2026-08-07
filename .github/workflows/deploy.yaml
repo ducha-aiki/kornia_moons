@@ -1,14 +1,22 @@
-name: Deploy to GitHub Pages
-
+name: Deploy docs
 permissions:
   contents: write
-  pages: write
-
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: [master, main]
   workflow_dispatch:
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    steps: [uses: fastai/workflows/quarto-ghp@master]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+      - run: mkdocs gh-deploy --force
