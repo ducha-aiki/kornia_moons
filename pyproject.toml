@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kornia_moons"
+dynamic = ["version"]
+description = "Conversions between kornia and other computer vision libraries formats"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Dmytro Mishkin", email = "ducha.aiki@gmail.com" }]
+keywords = ["kornia", "python", "pytorch", "deep learning", "computer vision"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+]
+dependencies = [
+    "kornia",
+    "torch",
+    "matplotlib",
+    "opencv-python",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "nbmake",
+    "mkdocs-material",
+    "mkdocs-jupyter",
+    "mkdocstrings[python]",
+]
+
+[project.urls]
+Homepage = "https://github.com/ducha-aiki/kornia_moons"
+Documentation = "https://ducha-aiki.github.io/kornia_moons/"
+Repository = "https://github.com/ducha-aiki/kornia_moons"
+
+[tool.setuptools]
+packages = ["kornia_moons"]
+
+[tool.setuptools.dynamic]
+version = { attr = "kornia_moons.__version__" }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
