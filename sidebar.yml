@@ -1,6 +1,0 @@
-website:
-  sidebar:
-    contents:
-      - index.ipynb
-      - feature.ipynb
-      - viz.ipynb
