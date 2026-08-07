@@ -1,3 +1,4 @@
+import warnings
 from pathlib import Path
 
 import cv2
@@ -5,7 +6,7 @@ import kornia
 import numpy as np
 import pytest
 import torch
-from kornia.utils import image_to_tensor
+from kornia.image import image_to_tensor
 
 from kornia_moons.feature import (
     OpenCVDetectorKornia,
@@ -170,3 +171,65 @@ def test_detector_max_kpts_keeps_strongest(img):
     _, resp = OpenCVDetectorKornia(cv2.SIFT_create(500), max_kpts=10)(timg255)
     got = sorted(resp.view(-1).tolist(), reverse=True)
     assert got == pytest.approx(all_resps[:10])
+
+
+def _top_half_mask(timg):
+    h, w = timg.shape[2], timg.shape[3]
+    mask = torch.zeros(1, 1, h, w, dtype=torch.uint8)
+    mask[..., : h // 2, :] = 255
+    return mask
+
+
+def test_detector_respects_mask(img):
+    timg = image_to_tensor(img, False).float() / 255.0
+    lafs, resp = OpenCVDetectorKornia(cv2.SIFT_create(500))(timg, _top_half_mask(timg))
+    assert lafs.shape[1] > 0
+    ys = lafs[0, :, 1, 2]
+    assert (ys <= timg.shape[2] // 2 + 1).all()
+
+
+def test_feature_respects_mask(img):
+    timg = image_to_tensor(img, False).float() / 255.0
+    lafs, resp, descs = OpenCVFeatureKornia(cv2.SIFT_create(500))(timg, _top_half_mask(timg))
+    assert lafs.shape[1] > 0
+    ys = lafs[0, :, 1, 2]
+    assert (ys <= timg.shape[2] // 2 + 1).all()
+
+
+def test_affnet_detector_respects_mask(img):
+    timg = image_to_tensor(img, False).float() / 255.0
+    det = OpenCVDetectorWithAffNetKornia(cv2.SIFT_create(200))
+    lafs, resp = det(timg, _top_half_mask(timg))
+    assert lafs.shape[1] > 0
+    ys = lafs[0, :, 1, 2]
+    assert (ys <= timg.shape[2] // 2 + 1).all()
+
+
+def test_detector_no_detections_returns_empty():
+    lafs, resp = OpenCVDetectorKornia(cv2.SIFT_create())(torch.zeros(1, 3, 64, 64))
+    assert lafs.shape == (1, 0, 2, 3)
+    assert resp.shape == (1, 0, 1)
+
+
+def test_feature_no_detections_returns_empty():
+    sift = cv2.SIFT_create()
+    lafs, resp, descs = OpenCVFeatureKornia(sift)(torch.zeros(1, 3, 64, 64))
+    assert lafs.shape == (1, 0, 2, 3)
+    assert resp.shape == (1, 0, 1)
+    assert descs.shape == (1, 0, sift.descriptorSize())
+
+
+def test_to_numpy_image_missing_file_raises():
+    with pytest.raises(FileNotFoundError):
+        to_numpy_image("/nonexistent/no_such_file.png")
+
+
+def test_no_kornia_utils_deprecation_warning(img):
+    # kornia 0.8.3 deprecated kornia.utils.{tensor_to_image,image_to_tensor}
+    # in favor of kornia.image; the wrappers must not hit the deprecated path
+    timg = image_to_tensor(img, False).float() / 255.0
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        OpenCVDetectorKornia(cv2.SIFT_create(50))(timg)
+    deprecated = [w for w in caught if "kornia.image" in str(w.message)]
+    assert not deprecated

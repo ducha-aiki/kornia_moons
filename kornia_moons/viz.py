@@ -8,14 +8,14 @@ import cv2
 import numpy as np
 import kornia
 
-from kornia.utils import tensor_to_image, image_to_tensor
+try:  # kornia >= 0.8.3
+    from kornia.image import tensor_to_image, image_to_tensor
+except ImportError:  # older kornia
+    from kornia.utils import tensor_to_image, image_to_tensor
 from typing import List, Union, Tuple, Optional
-from copy import deepcopy
 
 import matplotlib.pyplot as plt
 import torch.nn as nn
-from torch import allclose
-from typing import Union
 
 
 def visualize_LAF(img, LAF, img_idx = 0, color='r', linewidth=1,
@@ -71,8 +71,8 @@ def epilines_to_start_end_points(epi, h, w):
         ``h`` x ``w`` image, clipped to the image boundary.
     """
     num = len(epi)
-    zeros = torch.zeros(num)
-    ones = torch.ones(num)
+    zeros = torch.zeros(num, device=epi.device, dtype=epi.dtype)
+    ones = torch.ones(num, device=epi.device, dtype=epi.dtype)
     eps = 1e-8
 
     
@@ -103,6 +103,15 @@ def epilines_to_start_end_points(epi, h, w):
     start_lines = p1 * p1_is_start.float() + p3 * p3_is_start.float() + p4 * p4_is_start.float()
     fin_lines   = p2 * p2_is_fin.float()   + p4 * p4_is_fin.float() + p3 * p3_is_fin.float()
     return torch.stack ([start_lines, fin_lines])
+
+
+def _promote_to_matching_channels(img1: np.ndarray, img2: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    if img1.ndim != img2.ndim:
+        if img1.ndim == 2:
+            img1 = np.stack([img1] * 3, axis=-1)
+        if img2.ndim == 2:
+            img2 = np.stack([img2] * 3, axis=-1)
+    return img1, img2
 
 import kornia as K
 import kornia.feature as KF
@@ -151,33 +160,34 @@ def draw_LAF_matches(lafs1, lafs2, tent_idxs,
         ...                "tentative_color": (0.8, 0.8, 0),
         ...                "feature_color": None, "vertical": False}, H=H)
     """
-    from kornia_moons.feature import to_numpy_image, cv2_matches_from_kornia, to_np, to_torch
+    from kornia_moons.feature import to_numpy_image, to_np, to_torch
     if inlier_mask is not None:
         inlier_mask = np.array(inlier_mask).reshape(-1)
+    lafs1 = to_torch(lafs1).detach().cpu().float()
+    lafs2 = to_torch(lafs2).detach().cpu().float()
+    tent_idxs = to_torch(tent_idxs).detach().cpu().long()
     img1 = to_numpy_image(img1)
     img2 = to_numpy_image(img2)
-    
+    img1, img2 = _promote_to_matching_channels(img1, img2)
+
     h,w = img1.shape[:2]
     h2,w2 = img2.shape[:2]
-    
+
     corners_pts = np.float32([[0, 0],
                               [0, h-1],
                               [w-1, h-1],
                               [w-1, 0],
                               [0, 0] ]).reshape(-1,1,2)
-        
-    
-    img2_tr = deepcopy(img2)
-    
-    xy1 = KF.get_laf_center(to_torch(lafs1)).reshape(-1, 2)
-    xy2 = KF.get_laf_center(to_torch(lafs2)).reshape(-1, 2)
+
+
+    xy1 = KF.get_laf_center(lafs1).reshape(-1, 2)
+    xy2 = KF.get_laf_center(lafs2).reshape(-1, 2)
     # If we have no axes, create one
     if (fig is None and ax is None):
         fig, ax = plt.subplots(1,1, figsize=(20,10))
     if (fig is not None and ax is None):
         ax = fig.add_axes([0, 0, 1, 1])
 
-    tent_cv2 = cv2_matches_from_kornia(torch.ones(len(tent_idxs)), tent_idxs)
     tent_corrs = torch.stack([xy1[tent_idxs[:,0]], xy2[tent_idxs[:,1]]])
     try:
         vert = draw_dict['vertical']
@@ -355,16 +365,18 @@ def draw_LAF_inliers_perspective_repjojected(lafs1, lafs2, tent_idxs,
     import kornia as K
     import kornia.feature as KF
     import kornia.geometry as KG
-    from kornia_moons.feature import to_numpy_image, cv2_matches_from_kornia, to_np, to_torch
+    from kornia_moons.feature import to_numpy_image, to_np, to_torch
     inlier_mask = np.array(inlier_mask).reshape(-1)
+    lafs1 = to_torch(lafs1).detach().cpu().float()
+    lafs2 = to_torch(lafs2).detach().cpu().float()
+    tent_idxs = to_torch(tent_idxs).detach().cpu().long()
     img1 = to_numpy_image(img1)
     img2 = to_numpy_image(img2)
-    
+    img1, img2 = _promote_to_matching_channels(img1, img2)
+
     h,w = img1.shape[:2]
     h2,w2 = img2.shape[:2]
-    
-    img2_tr = deepcopy(img2)
-    
+
     lafs1_in2 = KF.perspective_transform_lafs(torch.from_numpy(H).float()[None],
                                               lafs1)
     lafs2_in1 = KF.perspective_transform_lafs(torch.inverse(torch.from_numpy(H).float()[None]),
