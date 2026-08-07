@@ -21,6 +21,18 @@ from typing import Union
 from .viz import visualize_LAF, draw_LAF_matches
 
 def to_numpy_image(img: Union[str, np.array, torch.Tensor]):
+    """Load or convert an image into an RGB numpy array.
+
+    Args:
+        img: Image file path, `(B, C, H, W)` / `(C, H, W)` tensor, or
+            numpy array. Paths are read with OpenCV and converted to RGB.
+
+    Returns:
+        The image as an ``np.ndarray``.
+
+    Raises:
+        TypeError: If ``img`` is not a str, np.ndarray, or torch.Tensor.
+    """
     if type(img) is str:
         img_out = cv2.cvtColor(cv2.imread(img), cv2.COLOR_BGR2RGB)
     elif isinstance(img, torch.Tensor):
@@ -32,6 +44,17 @@ def to_numpy_image(img: Union[str, np.array, torch.Tensor]):
     return img_out
 
 def to_torch(x: Union[List, np.array, torch.Tensor]):
+    """Convert a list or numpy array to a torch tensor.
+
+    Args:
+        x: List, numpy array, or torch tensor to convert.
+
+    Returns:
+        ``x`` as a ``torch.Tensor``.
+
+    Raises:
+        TypeError: If ``x`` is not a List, np.ndarray, or torch.Tensor.
+    """
     if type(x) is List:
         x_out = torch.tensor(x)
     elif isinstance(x, torch.Tensor):
@@ -43,6 +66,15 @@ def to_torch(x: Union[List, np.array, torch.Tensor]):
     return x_out
 
 def to_np(array: Union[List, Tuple, np.ndarray, torch.Tensor]):
+    """Convert a tensor or sequence to a numpy array.
+
+    Args:
+        array: List, tuple, numpy array, or torch tensor to convert.
+            Tensors are detached and moved to CPU before conversion.
+
+    Returns:
+        ``array`` as an ``np.ndarray``.
+    """
     if isinstance(array, torch.Tensor):
         return array.detach().cpu().numpy()
     return np.asarray(array)
@@ -51,6 +83,25 @@ def laf_from_opencv_kpts(kpts: List[cv2.KeyPoint],
                          mrSize: float=6.0,
                          device: torch.device=torch.device('cpu'),
                          with_resp: bool = False) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
+    """Convert OpenCV keypoints into kornia local affine frames (LAFs).
+
+    Args:
+        kpts: List of N OpenCV keypoints.
+        mrSize: Measurement-region scale multiplier applied to the keypoint
+            size. Use 6.0 for SIFT-like detectors and 1.0 for ORB-like
+            detectors, matching the OpenCV description-region conventions.
+        device: Device to place the output tensors on.
+        with_resp: If True, also return the keypoint responses.
+
+    Returns:
+        LAFs of shape :math:`(1, N, 2, 3)`, and, if ``with_resp`` is True,
+        a tuple of the LAFs and responses of shape :math:`(1, N, 1)`.
+
+    Example:
+        >>> img = cv2.imread('data/strahov.png')
+        >>> kps, descs = cv2.ORB_create(500).detectAndCompute(img, None)
+        >>> lafs, resp = laf_from_opencv_kpts(kps, mrSize=1.0, with_resp=True)
+    """
     N = len(kpts)
     xy = torch.tensor([(x.pt[0], x.pt[1]) for x in kpts ], device=device, dtype=torch.float).view(1, N, 2)
     scales = torch.tensor([(mrSize * x.size) for x in kpts ], device=device, dtype=torch.float).view(1, N, 1, 1)
@@ -65,6 +116,22 @@ def laf_from_opencv_kpts(kpts: List[cv2.KeyPoint],
 def opencv_kpts_from_laf(lafs: torch.Tensor,
                          mrSize: float = 1.0, 
                          resps: Optional[torch.Tensor] = None) -> List[cv2.KeyPoint]:
+    """Convert kornia local affine frames (LAFs) back to OpenCV keypoints.
+
+    Args:
+        lafs: LAFs of shape :math:`(1, N, 2, 3)`.
+        mrSize: Measurement-region scale multiplier to divide out of the LAF
+            scale. Must match the ``mrSize`` used to create the LAFs (6.0
+            for SIFT-like, 1.0 for ORB-like detectors).
+        resps: Optional keypoint responses of shape :math:`(1, N, 1)`.
+
+    Returns:
+        List of N OpenCV keypoints.
+
+    Example:
+        >>> lafs, resp = laf_from_opencv_kpts(kps, mrSize=1.0, with_resp=True)
+        >>> kps_back = opencv_kpts_from_laf(lafs, 1.0, resp)
+    """
     XY = kornia.feature.get_laf_center(lafs)
     S = kornia.feature.get_laf_scale(lafs)
     Ang = kornia.feature.get_laf_orientation(lafs)
@@ -80,24 +147,91 @@ def opencv_kpts_from_laf(lafs: torch.Tensor,
 def laf_from_opencv_ORB_kpts(kpts: List[cv2.KeyPoint], 
                              device: torch.device=torch.device('cpu'),
                              with_resp: bool = False) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
+    """Convert ORB keypoints into kornia LAFs using the ORB `mrSize` convention.
+
+    Args:
+        kpts: List of N OpenCV ORB keypoints.
+        device: Device to place the output tensors on.
+        with_resp: If True, also return the keypoint responses.
+
+    Returns:
+        LAFs of shape :math:`(1, N, 2, 3)`, and, if ``with_resp`` is True,
+        a tuple of the LAFs and responses of shape :math:`(1, N, 1)`.
+    """
     return laf_from_opencv_kpts(kpts, 1.0, device, with_resp)
 
 def laf_from_opencv_SIFT_kpts(kpts: List[cv2.KeyPoint], 
                               device: torch.device=torch.device('cpu'),
                               with_resp: bool = False) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
+    """Convert SIFT keypoints into kornia LAFs using the SIFT `mrSize` convention.
+
+    Args:
+        kpts: List of N OpenCV SIFT keypoints.
+        device: Device to place the output tensors on.
+        with_resp: If True, also return the keypoint responses.
+
+    Returns:
+        LAFs of shape :math:`(1, N, 2, 3)`, and, if ``with_resp`` is True,
+        a tuple of the LAFs and responses of shape :math:`(1, N, 1)`.
+    """
     return laf_from_opencv_kpts(kpts, 6.0, device, with_resp)
 
 
 def opencv_SIFT_kpts_from_laf(lafs, resps: Optional[torch.Tensor] = None):
+    """Convert kornia LAFs to OpenCV keypoints using the SIFT `mrSize` convention.
+
+    Args:
+        lafs: LAFs of shape :math:`(1, N, 2, 3)`.
+        resps: Optional keypoint responses of shape :math:`(1, N, 1)`.
+
+    Returns:
+        List of N OpenCV keypoints.
+    """
     return opencv_kpts_from_laf(lafs, 6.0, resps);
 
 def opencv_ORB_kpts_from_laf(lafs, resps: Optional[torch.Tensor] = None):
+    """Convert kornia LAFs to OpenCV keypoints using the ORB `mrSize` convention.
+
+    Args:
+        lafs: LAFs of shape :math:`(1, N, 2, 3)`.
+        resps: Optional keypoint responses of shape :math:`(1, N, 1)`.
+
+    Returns:
+        List of N OpenCV keypoints.
+    """
     return opencv_kpts_from_laf(lafs, 1.0, resps);
 
 def cv2_matches_from_kornia(match_dists: torch.Tensor, match_idxs: torch.Tensor) -> List[cv2.DMatch]:
+    """Convert kornia match distances and indexes to a list of cv2.DMatch.
+
+    Args:
+        match_dists: Match distances of shape :math:`(N, 1)`.
+        match_idxs: Match indexes (query, train) of shape :math:`(N, 2)`.
+
+    Returns:
+        List of N ``cv2.DMatch`` objects.
+
+    Example:
+        >>> dists, idxs = kornia.feature.match_nn(descs1, descs2)
+        >>> cv2_matches = cv2_matches_from_kornia(dists, idxs)
+    """
     return [cv2.DMatch(idx[0].item(), idx[1].item(), d.item()) for idx, d in zip (match_idxs, match_dists)]
 
 def kornia_matches_from_cv2(cv2_matches, device=torch.device('cpu')):
+    """Convert a list of cv2.DMatch to kornia match distance and index tensors.
+
+    Args:
+        cv2_matches: List of N ``cv2.DMatch`` objects.
+        device: Device to place the output tensors on.
+
+    Returns:
+        Tuple of match distances of shape :math:`(N, 1)` (float) and match
+        indexes (query, train) of shape :math:`(N, 2)` (long).
+
+    Example:
+        >>> cv2_matches = cv2_matches_from_kornia(match_dists, match_idxs)
+        >>> match_dists_back, match_idxs_back = kornia_matches_from_cv2(cv2_matches)
+    """
     num_matches = len(cv2_matches)
     match_dists = torch.zeros(num_matches, 1, device=device, dtype=torch.float)
     match_idxs = torch.zeros(num_matches, 2, device=device, dtype=torch.long)
@@ -108,6 +242,18 @@ def kornia_matches_from_cv2(cv2_matches, device=torch.device('cpu')):
     return match_dists, match_idxs
 
 def make_keypoints_upright(kpts):
+    """Deduplicate keypoints by response and zero their orientations.
+
+    Keypoints are considered duplicates when they share the same response
+    as the previous keypoint in the input list. Note that this mutates the
+    input keypoints in place (setting ``angle = 0``).
+
+    Args:
+        kpts: List of OpenCV keypoints, assumed sorted by response.
+
+    Returns:
+        The deduplicated, upright keypoints sorted by response, descending.
+    """
     unique_kp = []
     for i, kk in enumerate(kpts):
         if i > 0:
@@ -121,6 +267,24 @@ def make_keypoints_upright(kpts):
             
 
 class OpenCVDetectorKornia(nn.Module):
+    """Wrap an OpenCV detector into a kornia-compatible detection module.
+
+    The wrapped detector runs on the numpy image under the hood; the module
+    accepts and returns torch tensors, so it can slot into kornia pipelines.
+
+    Args:
+        opencv_detector: Any OpenCV detector exposing ``detect`` (e.g.
+            ``cv2.SIFT_create()``).
+        mrSize: Measurement-region scale multiplier (6.0 for SIFT, 1.0 for ORB).
+        make_upright: If True, deduplicate keypoints and zero their angles.
+        max_kpts: Keep at most this many keypoints when ``make_upright`` is
+            set; -1 keeps the OpenCV output as is.
+
+    Example:
+        >>> detector = OpenCVDetectorKornia(cv2.SIFT_create(500))
+        >>> timg = kornia.image_to_tensor(img, False).float() / 255.
+        >>> lafs, resps = detector(timg)
+    """
     def __init__(self, opencv_detector, mrSize: float = 6.0, make_upright = False, max_kpts = -1):
         super().__init__()
         self.features = opencv_detector
@@ -129,6 +293,16 @@ class OpenCVDetectorKornia(nn.Module):
         self.max_kpts = max_kpts
         
     def forward(self, x:torch.Tensor, mask=None):
+        """Detect keypoints on a batched image tensor.
+
+        Args:
+            x: Image tensor of shape :math:`(1, C, H, W)`, values in
+                :math:`[0, 1]` float or :math:`[0, 255]`.
+            mask: Optional detection mask.
+
+        Returns:
+            LAFs of shape :math:`(1, N, 2, 3)` and responses :math:`(1, N, 1)`.
+        """
         max_val = x.max()
         if max_val < 2.0:
             img_np = (255 * kornia.tensor_to_image(x)).astype(np.uint8)
@@ -146,12 +320,38 @@ class OpenCVDetectorKornia(nn.Module):
 
     
 class OpenCVFeatureKornia(nn.Module):
+    """Wrap an OpenCV detect-and-describe pipeline for kornia.
+
+    The wrapped feature (e.g. ``cv2.SIFT_create()``) runs ``detectAndCompute``
+    on the numpy image under the hood; the module accepts and returns torch
+    tensors, so it can slot into kornia pipelines.
+
+    Args:
+        opencv_detector: Any OpenCV feature exposing ``detectAndCompute``.
+        mrSize: Measurement-region scale multiplier (6.0 for SIFT, 1.0 for ORB).
+
+    Example:
+        >>> feature = OpenCVFeatureKornia(cv2.SIFT_create(500))
+        >>> timg = kornia.image_to_tensor(img, False).float() / 255.
+        >>> lafs, resps, descs = feature(timg)
+    """
     def __init__(self, opencv_detector, mrSize: float = 6.0):
         super().__init__()
         self.features = opencv_detector
         self.mrSize = mrSize
         
     def forward(self, x:torch.Tensor, mask=None):
+        """Detect and describe keypoints on a batched image tensor.
+
+        Args:
+            x: Image tensor of shape :math:`(1, C, H, W)`, values in
+                :math:`[0, 1]` float or :math:`[0, 255]`.
+            mask: Optional detection mask.
+
+        Returns:
+            LAFs of shape :math:`(1, N, 2, 3)`, responses of shape
+            :math:`(1, N, 1)`, and descriptors of shape :math:`(1, N, D)`.
+        """
         max_val = x.max()
         if max_val < 2.0:
             img_np = (255 * kornia.tensor_to_image(x)).astype(np.uint8)
@@ -165,6 +365,25 @@ class OpenCVFeatureKornia(nn.Module):
 
 
 class OpenCVDetectorWithAffNetKornia(nn.Module):
+    """Combine an OpenCV detector with kornia's AffNet affine-shape refinement.
+
+    The wrapped detector locates keypoints on the numpy image, and kornia's
+    ``LAFAffNetShapeEstimator`` then refines the elliptical shape of each
+    LAF. Note that AffNet's pretrained weights are downloaded on first use,
+    and the original keypoint orientation is preserved after refinement.
+
+    Args:
+        opencv_detector: Any OpenCV detector exposing ``detect``.
+        make_upright: If True, deduplicate keypoints and zero their angles.
+        mrSize: Measurement-region scale multiplier (6.0 for SIFT, 1.0 for ORB).
+        max_kpts: Keep at most this many keypoints when ``make_upright`` is
+            set; -1 keeps the OpenCV output as is.
+
+    Example:
+        >>> detector = OpenCVDetectorWithAffNetKornia(cv2.SIFT_create(500))
+        >>> timg = kornia.image_to_tensor(img, False).float() / 255.
+        >>> lafs, resps = detector(timg)
+    """
     def __init__(self, opencv_detector, make_upright = False, mrSize: float = 6.0, max_kpts = -1):
         super().__init__()
         self.features = opencv_detector
@@ -174,6 +393,16 @@ class OpenCVDetectorWithAffNetKornia(nn.Module):
         self.max_kpts = max_kpts
         
     def forward(self, x:torch.Tensor, mask=None):
+        """Detect keypoints and refine their affine shape with AffNet.
+
+        Args:
+            x: Image tensor of shape :math:`(1, C, H, W)`, values in
+                :math:`[0, 1]` float or :math:`[0, 255]`.
+            mask: Optional detection mask.
+
+        Returns:
+            LAFs of shape :math:`(1, N, 2, 3)` and responses :math:`(1, N, 1)`.
+        """
         self.affnet = self.affnet.to(x.device)
         max_val = x.max()
         if max_val < 2.0:

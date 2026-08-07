@@ -21,6 +21,27 @@ from typing import Union
 def visualize_LAF(img, LAF, img_idx = 0, color='r', linewidth=1,
                   draw_ori = True, fig=None,
                   ax = None, return_fig_ax = False, **kwargs):
+    """Draw local affine frames (LAFs) over an image.
+
+    Args:
+        img: Batched image tensor of shape :math:`(B, C, H, W)`.
+        LAF: LAFs of shape :math:`(B, N, 2, 3)`.
+        img_idx: Index of the image in the batch to draw on.
+        color: Matplotlib color for the LAF outlines.
+        linewidth: Line width of the LAF outlines.
+        draw_ori: If True, also draw the orientation line of each LAF.
+        fig: Optional existing matplotlib figure to draw on.
+        ax: Optional existing matplotlib axes to draw on.
+        return_fig_ax: If True, return the figure and axes instead of None.
+        **kwargs: Extra keyword arguments forwarded to ``plt.subplots``.
+
+    Returns:
+        Tuple of ``(fig, ax)`` if ``return_fig_ax`` is True, otherwise None.
+
+    Example:
+        >>> lafs, resp = laf_from_opencv_kpts(kps, mrSize=1.0, with_resp=True)
+        >>> visualize_LAF(image_to_tensor(img, False), lafs, 0, 'y', draw_ori=False)
+    """
     from kornia_moons.feature import to_numpy_image
     x, y = kornia.feature.laf.get_laf_pts_to_draw(kornia.feature.laf.scale_laf(LAF, 0.5), img_idx)
     if not draw_ori:
@@ -38,6 +59,17 @@ def visualize_LAF(img, LAF, img_idx = 0, color='r', linewidth=1,
 
 
 def epilines_to_start_end_points(epi, h, w):
+    """Clip epipolar lines to their image-boundary start/end points.
+
+    Args:
+        epi: Epipolar line coefficients ``(a, b, c)`` of shape :math:`(N, 3)`.
+        h: Image height.
+        w: Image width.
+
+    Returns:
+        Stacked start and end points of shape :math:`(2, N, 2)` for an
+        ``h`` x ``w`` image, clipped to the image boundary.
+    """
     num = len(epi)
     zeros = torch.zeros(num)
     ones = torch.ones(num)
@@ -85,8 +117,40 @@ def draw_LAF_matches(lafs1, lafs2, tent_idxs,
                         Fm: Optional[np.array] = None, H: Optional[np.array] = None,
                         fig = None, ax: Optional = None,
                         return_fig_ax=False):
-    '''This function draws LAFs, tentative matches, inliers epipolar lines (if F is provided),
-    and image1 corners reprojection into image 2 (if H is provided)'''
+    """This function draws LAFs, tentative matches, inliers epipolar lines (if F is provided),
+    and image1 corners reprojection into image 2 (if H is provided)
+
+    Args:
+        lafs1: LAFs of image 1, shape :math:`(1, N, 2, 3)`.
+        lafs2: LAFs of image 2, shape :math:`(1, N, 2, 3)`.
+        tent_idxs: Tentative match indexes (query, train) of shape :math:`(M, 2)`.
+        img1: First image, path/tensor/numpy array.
+        img2: Second image, path/tensor/numpy array.
+        inlier_mask: Optional boolean array/list of length M marking inliers
+            among ``tent_idxs``.
+        draw_dict: Drawing options. Keys: ``inlier_color`` (RGB tuple or
+            None to skip drawing inliers), ``tentative_color`` (RGB tuple or
+            None to skip drawing tentative matches), ``feature_color`` (RGB
+            tuple or None to skip drawing all detected LAFs), ``vertical``
+            (bool, stack images vertically instead of horizontally).
+        Fm: Optional fundamental matrix of shape :math:`(3, 3)` used to draw
+            inlier epipolar lines.
+        H: Optional homography of shape :math:`(3, 3)` used to draw the
+            reprojection of image 1's corners into image 2.
+        fig: Optional existing matplotlib figure to draw on.
+        ax: Optional existing matplotlib axes to draw on.
+        return_fig_ax: If True, return the figure and axes instead of None.
+
+    Returns:
+        Tuple of ``(fig, ax)`` if ``return_fig_ax`` is True, otherwise None.
+
+    Example:
+        >>> match_dists, match_idxs = kornia.feature.match_snn(descs1, descs2, 0.98)
+        >>> draw_LAF_matches(lafs1, lafs2, match_idxs, img1, img2, mask,
+        ...     draw_dict={"inlier_color": (0.2, 1, 0.2),
+        ...                "tentative_color": (0.8, 0.8, 0),
+        ...                "feature_color": None, "vertical": False}, H=H)
+    """
     from kornia_moons.feature import to_numpy_image, cv2_matches_from_kornia, to_np, to_torch
     if inlier_mask is not None:
         inlier_mask = np.array(inlier_mask).reshape(-1)
@@ -224,6 +288,22 @@ def draw_LAF_matches_from_result_dict(result_dict,
                                "tentative_color": (0.8, 0.8, 0), 
                                "feature_color": (0.2, 0.5, 1),
                                   "vertical": False}):
+    """Draw matches from a result dictionary produced by a matching pipeline.
+
+    Args:
+        result_dict: Dictionary with keys ``feat_dict1`` and ``feat_dict2``
+            (each ``{'lafs': tensor of shape (1, N, 2, 3)}``), ``tents_dict``
+            (``{'idxs': long tensor of shape (M, 2)}`` with tentative match
+            indexes), ``inlier_mask`` (list/array of M bools), and optionally
+            ``'H'`` (homography, :math:`(3, 3)` np.array) and/or ``'F'``
+            (fundamental matrix, :math:`(3, 3)` np.array).
+        img1: First image, path/tensor/numpy array.
+        img2: Second image, path/tensor/numpy array.
+        draw_dict: Drawing options, see :func:`draw_LAF_matches`.
+
+    Returns:
+        None. Forwards to :func:`draw_LAF_matches` without ``return_fig_ax``.
+    """
     if 'H' in result_dict:
         H = result_dict['H']
     else:
@@ -246,7 +326,32 @@ def draw_LAF_inliers_perspective_repjojected(lafs1, lafs2, tent_idxs,
                         H: np.array = None,
                         fig = None, ax: Optional = None,
                         return_fig_ax=False):
-    '''This function draws tentative matches and inliers given the homography H'''
+    """This function draws tentative matches and inliers given the homography H
+
+    Note that the function name keeps its original typo
+    (``repjojected``) for backward compatibility.
+
+    Args:
+        lafs1: LAFs of image 1, shape :math:`(1, N, 2, 3)`.
+        lafs2: LAFs of image 2, shape :math:`(1, N, 2, 3)`.
+        tent_idxs: Tentative match indexes (query, train) of shape :math:`(M, 2)`.
+        img1: First image, path/tensor/numpy array.
+        img2: Second image, path/tensor/numpy array.
+        inlier_mask: Boolean array/list of length M marking inliers among
+            ``tent_idxs``.
+        draw_dict: Drawing options. Keys: ``inlier_color`` (RGB tuple or
+            None to skip drawing inliers), ``reprojected_color`` (RGB tuple
+            or None to skip drawing the reprojected LAFs), ``vertical``
+            (bool, stack images vertically instead of horizontally).
+        H: Homography of shape :math:`(3, 3)` used to reproject LAFs between
+            the two images.
+        fig: Optional existing matplotlib figure to draw on.
+        ax: Optional existing matplotlib axes to draw on.
+        return_fig_ax: If True, return the figure and axes instead of None.
+
+    Returns:
+        Tuple of ``(fig, ax)`` if ``return_fig_ax`` is True, otherwise None.
+    """
     import kornia as K
     import kornia.feature as KF
     import kornia.geometry as KG
@@ -362,7 +467,29 @@ def draw_epipolar_errors_in_single_image(kp1: np.array, kp2: np.array,
                                          img_index: int = 2,
                                          ax: Optional = None,
                                          title = None):
-    '''This function draws epipolar errors in single image'''
+    """This function draws epipolar errors in single image
+
+    Args:
+        kp1: Keypoints in image 1, array of shape :math:`(N, 2)`.
+        kp2: Keypoints in image 2, array of shape :math:`(N, 2)`.
+        Fm1to2: Fundamental matrix mapping points from image 1 to image 2,
+            of shape :math:`(3, 3)`.
+        img: Image to draw on (the one indexed by ``img_index``), path,
+            tensor, or numpy array.
+        draw_dict: Drawing options. Keys: ``error_color`` (RGB tuple for the
+            error lines and estimated projections), ``feature_color`` (RGB
+            tuple for the ground-truth points), ``figsize`` (figure size
+            used when ``ax`` is None), ``markersize`` (marker size for the
+            scatter points).
+        img_index: Which image (1 or 2) ``kp1``/``kp2``/``img`` refer to;
+            when 1, ``kp1``/``kp2`` and ``Fm1to2`` are swapped/transposed
+            accordingly.
+        ax: Optional existing matplotlib axes to draw on.
+        title: Optional plot title.
+
+    Returns:
+        The matplotlib axes the errors were drawn on.
+    """
     from kornia.geometry.epipolar import get_closest_point_on_epipolar_line
     from kornia_moons.feature import to_numpy_image, cv2_matches_from_kornia, to_np, to_torch
     
@@ -405,11 +532,23 @@ def draw_epipolar_errors_in_single_image(kp1: np.array, kp2: np.array,
     return ax
 
 def plot_images(imgs, titles=None, cmaps="gray", dpi=100, size=6, pad=0.5):
-    """Plot a set of images horizontally.
+    """Plot a horizontal strip of images and establish the figure that
+    :func:`plot_lines` and :func:`plot_color_line_matches` draw on.
+
     Args:
-        imgs: a list of NumPy or PyTorch images, RGB (H, W, 3) or mono (H, W).
-        titles: a list of strings, as titles for each image.
-        cmaps: colormaps for monochrome images.
+        imgs: List of NumPy or PyTorch images, RGB :math:`(H, W, 3)` or
+            mono :math:`(H, W)`.
+        titles: Optional list of strings, as titles for each image.
+        cmaps: Colormap, or list of colormaps (one per image), used for
+            monochrome images.
+        dpi: Figure resolution in dots per inch.
+        size: Height in inches of each subplot; the figure width scales
+            with the number of images. If None, matplotlib picks the size.
+        pad: Padding passed to ``fig.tight_layout``.
+
+    Returns:
+        None. The created figure and axes become the current matplotlib
+        figure, ready for :func:`plot_lines` to draw on.
     """
     import matplotlib
     import matplotlib.colors as mcolors
@@ -435,13 +574,25 @@ def plot_images(imgs, titles=None, cmaps="gray", dpi=100, size=6, pad=0.5):
 
 
 def plot_lines(lines, line_colors="orange", point_colors="cyan", ps=4, lw=2, indices=(0, 1)):
-    """Plot lines and endpoints for existing images.
+    """Plot line segments and their endpoints on the current figure's axes.
+
+    Must be called after :func:`plot_images`, which creates the figure and
+    axes this function draws on.
+
     Args:
-        lines: list of ndarrays of size (N, 2, 2). order: [..., 0] is y, [..., 0] is x
-        colors: string, or list of list of tuples (one for each keypoints).
-        ps: size of the keypoints as float pixels.
-        lw: line width as float pixels.
-        indices: indices of the images to draw the matches on.
+        lines: List of arrays of shape :math:`(N, 2, 2)`, one per image,
+            with ``[..., 0]`` the y coordinate and ``[..., 1]`` the x
+            coordinate of each endpoint.
+        line_colors: Color, or list of colors (one per image), for the
+            line segments.
+        point_colors: Color, or list of colors (one per image), for the
+            endpoints.
+        ps: Size of the endpoint markers, in points.
+        lw: Line width, in points.
+        indices: Indexes of the current figure's axes to draw the lines on.
+
+    Returns:
+        None. The lines and points are added to the existing axes in place.
     """
     import matplotlib
     import matplotlib.colors as mcolors
@@ -473,11 +624,24 @@ def plot_lines(lines, line_colors="orange", point_colors="cyan", ps=4, lw=2, ind
 
 
 def plot_color_line_matches(lines, lw=2, indices=(0, 1)):
-    """Plot line matches for existing images with multiple colors.
+    """Plot matched line segments on the current figure's axes, giving each
+    match its own color.
+
+    Must be called after :func:`plot_images`, which creates the figure and
+    axes this function draws on. Used to visualize SOLD2-style line matches
+    between two images.
+
     Args:
-        lines: list of ndarrays of size (N, 2, 2). order: [..., 0] is y, [..., 0] is x
-        lw: line width as float pixels.
-        indices: indices of the images to draw the matches on.
+        lines: List of arrays of shape :math:`(N, 2, 2)`, one per image,
+            with ``[..., 0]`` the y coordinate and ``[..., 1]`` the x
+            coordinate of each endpoint. Line ``i`` in each image is drawn
+            with the same random color, so index ``i`` must denote the same
+            match across images.
+        lw: Line width, in points.
+        indices: Indexes of the current figure's axes to draw the lines on.
+
+    Returns:
+        None. The lines are added to the existing axes in place.
     """
     import matplotlib
     import matplotlib.colors as mcolors
