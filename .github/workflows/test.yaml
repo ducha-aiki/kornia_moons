@@ -13,3 +13,41 @@ jobs:
       - run: pip install -e ".[dev]"
       - run: pytest tests -v
       - run: pytest --nbmake docs/feature.ipynb docs/viz.ipynb
+
+  # Unit tests against older opencv / torch / kornia stacks.
+  # opencv-python 4.0-4.3 ships no wheels for Python >= 3.9 (our floor),
+  # so 4.4.0.46 is the oldest installable OpenCV; from 4.5.x wheels are
+  # abi3 and cover all modern Pythons. Notebooks run on the modern job only.
+  compat:
+    runs-on: ubuntu-latest
+    name: compat py${{ matrix.python }} ${{ matrix.label }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - python: "3.9"
+            label: "oldest (cv 4.4, torch 1.13, kornia 0.6)"
+            torch: "torch==1.13.1"
+            deps: 'opencv-python-headless==4.4.0.46 kornia==0.6.12 "numpy<2"'
+          - python: "3.10"
+            label: "middle (cv 4.7, torch 2.1, kornia 0.7)"
+            torch: "torch==2.1.2"
+            deps: 'opencv-python-headless==4.7.0.72 kornia==0.7.3 "numpy<2"'
+          - python: "3.12"
+            label: "latest"
+            torch: "torch"
+            deps: "opencv-python-headless kornia numpy"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+      - name: Install pinned stack (CPU torch)
+        run: |
+          pip install ${{ matrix.torch }} --index-url https://download.pytorch.org/whl/cpu
+          pip install ${{ matrix.deps }} matplotlib pytest
+          pip install -e . --no-deps
+      - name: Show resolved versions
+        run: python -c "import torch, kornia, cv2, numpy; print('torch', torch.__version__, '| kornia', kornia.__version__, '| cv2', cv2.__version__, '| numpy', numpy.__version__)"
+      - run: pytest tests -v

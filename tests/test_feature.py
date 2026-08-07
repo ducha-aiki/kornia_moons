@@ -6,7 +6,10 @@ import kornia
 import numpy as np
 import pytest
 import torch
-from kornia.image import image_to_tensor
+try:  # kornia >= 0.8.3
+    from kornia.image import image_to_tensor
+except ImportError:  # older kornia
+    from kornia.utils import image_to_tensor
 
 from kornia_moons.feature import (
     OpenCVDetectorKornia,
@@ -222,6 +225,24 @@ def test_feature_no_detections_returns_empty():
 def test_to_numpy_image_missing_file_raises():
     with pytest.raises(FileNotFoundError):
         to_numpy_image("/nonexistent/no_such_file.png")
+
+
+def test_kpts_without_orientation_convert_to_upright_lafs():
+    # OpenCV uses angle == -1 as "orientation not computed" (GFTT, FAST, ...);
+    # it must map to an upright LAF, not a -(-1) = 1 degree rotation
+    kp = cv2.KeyPoint(10.0, 20.0, 2.0)
+    assert kp.angle == -1.0
+    lafs = laf_from_opencv_kpts([kp], mrSize=1.0)
+    assert kornia.feature.get_laf_orientation(lafs).abs().max().item() == 0.0
+
+
+def test_kornia_matches_from_cv2_accepts_knn_output(sift_kpts):
+    _, descs = sift_kpts
+    knn = cv2.BFMatcher().knnMatch(descs, descs, k=2)
+    dists, idxs = kornia_matches_from_cv2(knn)
+    n = sum(len(group) for group in knn)
+    assert dists.shape == (n, 1)
+    assert idxs.shape == (n, 2)
 
 
 def test_no_kornia_utils_deprecation_warning(img):

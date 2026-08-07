@@ -9,12 +9,16 @@ import kornia
 import numpy as np
 import pytest
 import torch
-from kornia.image import image_to_tensor
+try:  # kornia >= 0.8.3
+    from kornia.image import image_to_tensor
+except ImportError:  # older kornia
+    from kornia.utils import image_to_tensor
 
 from kornia_moons.feature import laf_from_opencv_kpts
 from kornia_moons.viz import (
     draw_LAF_matches,
     draw_LAF_matches_from_result_dict,
+    draw_point_matches,
     epilines_to_start_end_points,
     plot_images,
     plot_lines,
@@ -124,6 +128,32 @@ def test_epilines_keep_dtype_and_device():
     pts = epilines_to_start_end_points(epi, 100, 200)
     assert pts.dtype == torch.float64
     assert pts.device == epi.device
+
+
+def test_draw_point_matches(img):
+    # LoFTR/LightGlue-style output: corresponded points, no LAFs
+    pts1 = np.random.RandomState(0).rand(20, 2).astype(np.float32) * 100
+    pts2 = pts1 + 3.0
+    fig, ax = draw_point_matches(pts1, pts2, img, img, return_fig_ax=True)
+    assert fig is not None and ax is not None
+
+
+def test_draw_point_matches_with_inliers_and_F(img):
+    pts1 = np.random.RandomState(1).rand(20, 2).astype(np.float32) * 100
+    pts2 = pts1 + 3.0
+    inliers = [True] * 10 + [False] * 10
+    F = np.array([[0.0, 0.0, -1.0], [0.0, 0.0, -1.0], [1.0, 1.0, 0.0]])
+    fig, ax = draw_point_matches(
+        pts1, pts2, img, img, inliers, Fm=F, return_fig_ax=True
+    )
+    assert fig is not None and ax is not None
+
+
+def test_draw_point_matches_from_tensors(img):
+    pts1 = torch.rand(15, 2) * 100
+    pts2 = pts1 + 3.0
+    fig, ax = draw_point_matches(pts1, pts2, img, img, return_fig_ax=True)
+    assert fig is not None and ax is not None
 
 
 needs_gpu = pytest.mark.skipif(
