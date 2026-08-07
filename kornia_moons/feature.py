@@ -277,10 +277,9 @@ class OpenCVDetectorKornia(nn.Module):
             ``cv2.SIFT_create()``).
         mrSize: Measurement-region scale multiplier (6.0 for SIFT, 1.0 for ORB).
         make_upright: If True, deduplicate keypoints and zero their angles.
-        max_kpts: Keep at most this many keypoints; only applied when
-            ``make_upright`` is True. With the default ``-1``, the slice
-            ``kpts[:-1]`` drops the final keypoint instead of keeping
-            everything — pass an explicit positive limit to control this.
+        max_kpts: Keep at most this many of the highest-response keypoints,
+            applied whether or not ``make_upright`` is set. Non-positive
+            values (the default ``-1``) keep all keypoints.
 
     Example:
         >>> detector = OpenCVDetectorKornia(cv2.SIFT_create(500))
@@ -313,10 +312,10 @@ class OpenCVDetectorKornia(nn.Module):
         if mask is not None:
             mask = kornia.tensor_to_image(x).astype(np.uint8)
         kpts = self.features.detect(img_np, mask)
-        # Compute descriptors
         if self.make_upright:
             kpts = make_keypoints_upright(kpts)
-            kpts = kpts[:min(len(kpts), self.max_kpts)]
+        if self.max_kpts > 0:
+            kpts = sorted(kpts, key=lambda k: k.response, reverse=True)[:self.max_kpts]
         lafs, resp = laf_from_opencv_kpts(kpts, mrSize=self.mrSize, with_resp=True, device=x.device)
         return lafs, resp
 
@@ -378,10 +377,9 @@ class OpenCVDetectorWithAffNetKornia(nn.Module):
         opencv_detector: Any OpenCV detector exposing ``detect``.
         make_upright: If True, deduplicate keypoints and zero their angles.
         mrSize: Measurement-region scale multiplier (6.0 for SIFT, 1.0 for ORB).
-        max_kpts: Keep at most this many keypoints; only applied when
-            ``make_upright`` is True. With the default ``-1``, the slice
-            ``kpts[:-1]`` drops the final keypoint instead of keeping
-            everything — pass an explicit positive limit to control this.
+        max_kpts: Keep at most this many of the highest-response keypoints,
+            applied whether or not ``make_upright`` is set. Non-positive
+            values (the default ``-1``) keep all keypoints.
 
     Example:
         >>> detector = OpenCVDetectorWithAffNetKornia(cv2.SIFT_create(500))
@@ -416,10 +414,10 @@ class OpenCVDetectorWithAffNetKornia(nn.Module):
         if mask is not None:
             mask = K.tensor_to_image(x).astype(np.uint8)
         kpts = self.features.detect(img_np, mask)
-        # Compute descriptors
         if self.make_upright:
             kpts = make_keypoints_upright(kpts)
-            kpts = kpts[:min(len(kpts), self.max_kpts)]
+        if self.max_kpts > 0:
+            kpts = sorted(kpts, key=lambda k: k.response, reverse=True)[:self.max_kpts]
         lafs, resp = laf_from_opencv_kpts(kpts, mrSize=self.mrSize, with_resp=True, device=x.device)
         ori = kornia.feature.get_laf_orientation(lafs)
         lafs = self.affnet(lafs, x.mean(dim=1, keepdim=True))
