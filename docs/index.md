@@ -54,6 +54,7 @@ plt.imshow(out_img2)
 ## Matching and visualization
 
 ```python
+import cv2
 import numpy as np
 import torch
 import kornia

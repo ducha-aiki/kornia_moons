@@ -121,8 +121,8 @@ def draw_LAF_matches(lafs1, lafs2, tent_idxs,
     and image1 corners reprojection into image 2 (if H is provided)
 
     Args:
-        lafs1: LAFs of image 1, shape :math:`(1, N, 2, 3)`.
-        lafs2: LAFs of image 2, shape :math:`(1, N, 2, 3)`.
+        lafs1: LAFs of image 1, shape :math:`(1, N1, 2, 3)`.
+        lafs2: LAFs of image 2, shape :math:`(1, N2, 2, 3)`.
         tent_idxs: Tentative match indexes (query, train) of shape :math:`(M, 2)`.
         img1: First image, path/tensor/numpy array.
         img2: Second image, path/tensor/numpy array.
@@ -292,7 +292,7 @@ def draw_LAF_matches_from_result_dict(result_dict,
 
     Args:
         result_dict: Dictionary with keys ``feat_dict1`` and ``feat_dict2``
-            (each ``{'lafs': tensor of shape (1, N, 2, 3)}``), ``tents_dict``
+            (each ``{'lafs': tensor of shape (1, N1, 2, 3)}`` and ``(1, N2, 2, 3)`` respectively), ``tents_dict``
             (``{'idxs': long tensor of shape (M, 2)}`` with tentative match
             indexes), ``inlier_mask`` (list/array of M bools), and optionally
             ``'H'`` (homography, :math:`(3, 3)` np.array) and/or ``'F'``
@@ -542,8 +542,7 @@ def plot_images(imgs, titles=None, cmaps="gray", dpi=100, size=6, pad=0.5):
         cmaps: Colormap, or list of colormaps (one per image), used for
             monochrome images.
         dpi: Figure resolution in dots per inch.
-        size: Height in inches of each subplot; the figure width scales
-            with the number of images. If None, matplotlib picks the size.
+        size: Width in inches allotted per image; the figure height is ``3/4`` of it.
         pad: Padding passed to ``fig.tight_layout``.
 
     Returns:
