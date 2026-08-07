@@ -26,7 +26,7 @@ pip install kornia_moons
 ```python
 import matplotlib.pyplot as plt
 import cv2
-import kornia as K
+from kornia.image import image_to_tensor
 
 from kornia_moons.feature import laf_from_opencv_ORB_kpts, opencv_ORB_kpts_from_laf
 from kornia_moons.viz import visualize_LAF
@@ -40,7 +40,7 @@ out_img = cv2.drawKeypoints(img, kps, None, flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RI
 plt.imshow(out_img)
 
 lafs = laf_from_opencv_ORB_kpts(kps)
-visualize_LAF(K.image_to_tensor(img, False), lafs, 0)
+visualize_LAF(image_to_tensor(img, False), lafs, 0)
 
 kps_back = opencv_ORB_kpts_from_laf(lafs)
 out_img2 = cv2.drawKeypoints(img, kps_back, None, flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)

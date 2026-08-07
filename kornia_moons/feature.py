@@ -9,14 +9,14 @@ import cv2
 import numpy as np
 import kornia
 
-from kornia.utils import tensor_to_image, image_to_tensor
+try:  # kornia >= 0.8.3
+    from kornia.image import tensor_to_image, image_to_tensor
+except ImportError:  # older kornia
+    from kornia.utils import tensor_to_image, image_to_tensor
 from typing import List, Union, Tuple, Optional
-from copy import deepcopy
 
 import matplotlib.pyplot as plt
 import torch.nn as nn
-from torch import allclose
-from typing import Union
 
 from .viz import visualize_LAF, draw_LAF_matches
 
@@ -32,9 +32,13 @@ def to_numpy_image(img: Union[str, np.array, torch.Tensor]):
 
     Raises:
         TypeError: If ``img`` is not a str, np.ndarray, or torch.Tensor.
+        FileNotFoundError: If ``img`` is a path that cannot be read.
     """
     if type(img) is str:
-        img_out = cv2.cvtColor(cv2.imread(img), cv2.COLOR_BGR2RGB)
+        img_bgr = cv2.imread(img)
+        if img_bgr is None:
+            raise FileNotFoundError(f'Could not read image: {img}')
+        img_out = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
     elif isinstance(img, torch.Tensor):
         img_out = tensor_to_image(img)
     elif isinstance(img, np.ndarray):
@@ -127,6 +131,12 @@ def opencv_kpts_from_laf(lafs: torch.Tensor,
 
     Returns:
         List of N OpenCV keypoints.
+
+    Note:
+        A LAF does not store the OpenCV ``octave`` and ``class_id`` fields,
+        so keypoints converted back get the defaults (``octave=0``,
+        ``class_id=-1``). OpenCV descriptor extractors still work on such
+        keypoints.
 
     Example:
         >>> lafs, resp = laf_from_opencv_kpts(kps, mrSize=1.0, with_resp=True)
@@ -264,7 +274,27 @@ def make_keypoints_upright(kpts):
     top_resps = np.array([kk.response for kk in unique_kp])
     idxs = np.argsort(top_resps)[::-1]
     return [unique_kp[i] for i in idxs]
-            
+
+
+def _image_to_numpy_uint8(x: torch.Tensor) -> np.ndarray:
+    # heuristic: tensors whose max value is below 2.0 are assumed to be
+    # in [0, 1] range and are scaled by 255; genuinely dark [0, 255]
+    # images with max < 2 would be misread — pre-scale those to [0, 1]
+    if x.max() < 2.0:
+        return (255 * tensor_to_image(x)).astype(np.uint8)
+    return tensor_to_image(x).astype(np.uint8)
+
+
+def _mask_to_numpy(mask: Optional[Union[torch.Tensor, np.ndarray]]) -> Optional[np.ndarray]:
+    if mask is None:
+        return None
+    if isinstance(mask, torch.Tensor):
+        mask = tensor_to_image(mask)
+    mask = np.asarray(mask)
+    if mask.ndim == 3:
+        mask = mask[..., 0]
+    return (255 * (mask > 0)).astype(np.uint8)
+
 
 class OpenCVDetectorKornia(nn.Module):
     """Wrap an OpenCV detector into a kornia-compatible detection module.
@@ -299,19 +329,14 @@ class OpenCVDetectorKornia(nn.Module):
         Args:
             x: Image tensor of shape :math:`(1, C, H, W)`, values in
                 :math:`[0, 1]` float or :math:`[0, 255]`.
-            mask: Optional detection mask.
+            mask: Optional detection mask, :math:`(1, 1, H, W)` tensor or
+                :math:`(H, W)` array; keypoints are detected where nonzero.
 
         Returns:
             LAFs of shape :math:`(1, N, 2, 3)` and responses :math:`(1, N, 1)`.
         """
-        max_val = x.max()
-        if max_val < 2.0:
-            img_np = (255 * kornia.tensor_to_image(x)).astype(np.uint8)
-        else:
-            img_np =  kornia.tensor_to_image(x).astype(np.uint8)
-        if mask is not None:
-            mask = kornia.tensor_to_image(x).astype(np.uint8)
-        kpts = self.features.detect(img_np, mask)
+        img_np = _image_to_numpy_uint8(x)
+        kpts = self.features.detect(img_np, _mask_to_numpy(mask))
         if self.make_upright:
             kpts = make_keypoints_upright(kpts)
         if self.max_kpts > 0:
@@ -347,20 +372,17 @@ class OpenCVFeatureKornia(nn.Module):
         Args:
             x: Image tensor of shape :math:`(1, C, H, W)`, values in
                 :math:`[0, 1]` float or :math:`[0, 255]`.
-            mask: Optional detection mask.
+            mask: Optional detection mask, :math:`(1, 1, H, W)` tensor or
+                :math:`(H, W)` array; keypoints are detected where nonzero.
 
         Returns:
             LAFs of shape :math:`(1, N, 2, 3)`, responses of shape
             :math:`(1, N, 1)`, and descriptors of shape :math:`(1, N, D)`.
         """
-        max_val = x.max()
-        if max_val < 2.0:
-            img_np = (255 * kornia.tensor_to_image(x)).astype(np.uint8)
-        else:
-            img_np =  kornia.tensor_to_image(x).astype(np.uint8)
-        if mask is not None:
-            mask = kornia.tensor_to_image(x).astype(np.uint8)
-        kpts, descs = self.features.detectAndCompute(img_np, mask)
+        img_np = _image_to_numpy_uint8(x)
+        kpts, descs = self.features.detectAndCompute(img_np, _mask_to_numpy(mask))
+        if descs is None:
+            descs = np.zeros((0, self.features.descriptorSize()), dtype=np.float32)
         lafs, resp = laf_from_opencv_kpts(kpts, mrSize=self.mrSize, with_resp=True, device=x.device)
         return lafs, resp, torch.from_numpy(descs).to(device=x.device)[None]
 
@@ -400,20 +422,15 @@ class OpenCVDetectorWithAffNetKornia(nn.Module):
         Args:
             x: Image tensor of shape :math:`(1, C, H, W)`, values in
                 :math:`[0, 1]` float or :math:`[0, 255]`.
-            mask: Optional detection mask.
+            mask: Optional detection mask, :math:`(1, 1, H, W)` tensor or
+                :math:`(H, W)` array; keypoints are detected where nonzero.
 
         Returns:
             LAFs of shape :math:`(1, N, 2, 3)` and responses :math:`(1, N, 1)`.
         """
         self.affnet = self.affnet.to(x.device)
-        max_val = x.max()
-        if max_val < 2.0:
-            img_np = (255 * kornia.tensor_to_image(x)).astype(np.uint8)
-        else:
-            img_np =  kornia.tensor_to_image(x).astype(np.uint8)
-        if mask is not None:
-            mask = K.tensor_to_image(x).astype(np.uint8)
-        kpts = self.features.detect(img_np, mask)
+        img_np = _image_to_numpy_uint8(x)
+        kpts = self.features.detect(img_np, _mask_to_numpy(mask))
         if self.make_upright:
             kpts = make_keypoints_upright(kpts)
         if self.max_kpts > 0:
