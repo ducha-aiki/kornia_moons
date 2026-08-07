@@ -127,6 +127,46 @@ def test_opencv_feature_kornia(img):
 def test_opencv_detector_affnet(img):
     # downloads AffNet weights on first run
     timg = image_to_tensor(img, False).float() / 255.0
-    det = OpenCVDetectorWithAffNetKornia(cv2.SIFT_create(500), make_upright=True)
+    det = OpenCVDetectorWithAffNetKornia(cv2.SIFT_create(500), make_upright=True, max_kpts=50)
     lafs, resp = det(timg)
     assert lafs.dim() == 4 and lafs.shape[-2:] == (2, 3)
+    assert lafs.shape[1] == 50
+
+
+def test_to_torch_from_list():
+    t = to_torch([1.0, 2.0, 3.0])
+    assert isinstance(t, torch.Tensor)
+    assert torch.allclose(t, torch.tensor([1.0, 2.0, 3.0]))
+
+
+def test_to_torch_rejects_unsupported_type():
+    with pytest.raises(TypeError):
+        to_torch(42)
+
+
+@pytest.mark.parametrize("max_kpts", [-1, 0])
+def test_detector_max_kpts_default_keeps_all(img, max_kpts):
+    # regression: make_upright=True with default max_kpts=-1 used to drop the last keypoint
+    expected = len(make_keypoints_upright(list(cv2.SIFT_create(500).detect(img, None))))
+    timg255 = image_to_tensor(img, False).float()  # 0-255 range: exact uint8 round-trip
+    lafs, resp = OpenCVDetectorKornia(
+        cv2.SIFT_create(500), make_upright=True, max_kpts=max_kpts)(timg255)
+    assert lafs.shape[1] == expected
+
+
+@pytest.mark.parametrize("upright", [False, True])
+def test_detector_max_kpts_truncates(img, upright):
+    timg = image_to_tensor(img, False).float() / 255.0
+    lafs, resp = OpenCVDetectorKornia(
+        cv2.SIFT_create(500), make_upright=upright, max_kpts=10)(timg)
+    assert lafs.shape[1] == 10
+    assert resp.shape[1] == 10
+
+
+def test_detector_max_kpts_keeps_strongest(img):
+    all_resps = sorted(
+        (k.response for k in cv2.SIFT_create(500).detect(img, None)), reverse=True)
+    timg255 = image_to_tensor(img, False).float()  # 0-255 range: exact uint8 round-trip
+    _, resp = OpenCVDetectorKornia(cv2.SIFT_create(500), max_kpts=10)(timg255)
+    got = sorted(resp.view(-1).tolist(), reverse=True)
+    assert got == pytest.approx(all_resps[:10])
