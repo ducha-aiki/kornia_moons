@@ -126,8 +126,19 @@ def laf_from_opencv_kpts(kpts: List[cv2.KeyPoint],
     return laf, resp
 
 
+def _opencv_angle(ori: float) -> float:
+    """Convert a kornia LAF orientation in degrees to an OpenCV ``KeyPoint.angle``.
+
+    OpenCV measures the angle the other way round and keeps it in [0, 360): a negative
+    angle is its "orientation not computed" sentinel, which ``laf_from_opencv_kpts`` reads as upright.
+    """
+    angle = (-ori) % 360.0
+    # (-tiny) % 360.0 rounds to 360.0
+    return 0.0 if angle >= 360.0 else angle
+
+
 def opencv_kpts_from_laf(lafs: torch.Tensor,
-                         mrSize: float = 1.0, 
+                         mrSize: float = 6.0,
                          resps: Optional[torch.Tensor] = None) -> List[cv2.KeyPoint]:
     """Convert kornia local affine frames (LAFs) back to OpenCV keypoints.
 
@@ -135,11 +146,12 @@ def opencv_kpts_from_laf(lafs: torch.Tensor,
         lafs: LAFs of shape :math:`(1, N, 2, 3)`.
         mrSize: Measurement-region scale multiplier to divide out of the LAF
             scale. Must match the ``mrSize`` used to create the LAFs (6.0
-            for SIFT-like, 1.0 for ORB-like detectors).
+            for SIFT-like, 1.0 for ORB-like detectors). The default, 6.0, is
+            the default of ``laf_from_opencv_kpts``.
         resps: Optional keypoint responses of shape :math:`(1, N, 1)`.
 
     Returns:
-        List of N OpenCV keypoints.
+        List of N OpenCV keypoints, with ``angle`` in [0, 360).
 
     Note:
         A LAF does not store the OpenCV ``octave`` and ``class_id`` fields,
@@ -156,10 +168,10 @@ def opencv_kpts_from_laf(lafs: torch.Tensor,
     Ang = kornia.feature.get_laf_orientation(lafs)
     if resps is not None:
         assert resps.shape[:2] == lafs.shape[:2]
-        cv_kpts = [cv2.KeyPoint(xy[0].item(), xy[1].item(), s.item()/mrSize, -a.item(), r.item()) 
+        cv_kpts = [cv2.KeyPoint(xy[0].item(), xy[1].item(), s.item()/mrSize, _opencv_angle(a.item()), r.item()) 
                    for xy, s, a, r in zip(XY.view(-1,2), S.view(-1, 1), Ang.view(-1, 1), resps.view(-1, 1))]
     else:
-        cv_kpts = [cv2.KeyPoint(xy[0].item(), xy[1].item(), s.item()/ mrSize, -a.item()) 
+        cv_kpts = [cv2.KeyPoint(xy[0].item(), xy[1].item(), s.item()/ mrSize, _opencv_angle(a.item())) 
                    for xy, s, a in zip(XY.view(-1,2), S.view(-1, 1), Ang.view(-1, 1))]        
     return cv_kpts
 

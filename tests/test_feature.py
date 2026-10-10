@@ -236,6 +236,39 @@ def test_kpts_without_orientation_convert_to_upright_lafs():
     assert kornia.feature.get_laf_orientation(lafs).abs().max().item() == 0.0
 
 
+def test_laf_to_kpts_roundtrip_keeps_orientation():
+    # OpenCV measures KeyPoint.angle the other way round from kornia and keeps it in [0, 360);
+    # a negative angle means "orientation not computed", so it must never be written for a real one
+    ori = torch.tensor([30.0, -30.0, 0.0, -160.0, 179.5, -179.9, 90.0])
+    n = ori.numel()
+    lafs = kornia.feature.laf_from_center_scale_ori(
+        torch.rand(1, n, 2) * 100, torch.full((1, n, 1, 1), 12.0), ori.view(1, n, 1)
+    )
+    kps = opencv_kpts_from_laf(lafs)
+    angles = torch.tensor([k.angle for k in kps])
+    assert ((angles >= 0) & (angles < 360)).all()
+    assert torch.allclose(angles, (-ori) % 360, atol=1e-3)
+    back = kornia.feature.get_laf_orientation(laf_from_opencv_kpts(kps)).view(-1)
+    diff = (back - ori + 180) % 360 - 180
+    assert diff.abs().max().item() < 1e-3
+
+
+def test_sift_kpts_roundtrip_keeps_angle(sift_kpts):
+    kps, _ = sift_kpts
+    kps_back = opencv_SIFT_kpts_from_laf(laf_from_opencv_SIFT_kpts(kps))
+    for a, b in zip(kps, kps_back):
+        assert 0 <= b.angle < 360
+        assert (b.angle - a.angle + 180) % 360 - 180 == pytest.approx(0, abs=1e-3)
+
+
+def test_default_mr_size_roundtrip(sift_kpts):
+    # Both directions default to the same measurement-region multiplier
+    kps, _ = sift_kpts
+    kps_back = opencv_kpts_from_laf(laf_from_opencv_kpts(kps))
+    for a, b in zip(kps, kps_back):
+        assert b.size == pytest.approx(a.size, rel=1e-3)
+
+
 def test_kornia_matches_from_cv2_accepts_knn_output(sift_kpts):
     _, descs = sift_kpts
     knn = cv2.BFMatcher().knnMatch(descs, descs, k=2)
